@@ -8,8 +8,10 @@ import { UnitExtractorView } from './components/UnitExtractorView';
 import { ThemeStudioView } from './components/ThemeStudioView';
 import { SettingsView } from './components/SettingsView';
 import { StudyTimersView } from './components/StudyTimersView';
+import { CalendarView } from './components/CalendarView';
 import { SoundscapeMixer } from './components/SoundscapeMixer';
 import { FloatingMiniPlayer } from './components/FloatingMiniPlayer';
+import { CommandPalette } from './components/CommandPalette';
 import { Theme, DockPosition } from './types';
 import { BUILT_IN_THEMES, applyTheme } from './theme/themes';
 import { dbService } from './services/db';
@@ -24,11 +26,13 @@ export const App: React.FC = () => {
     'pdf_viewer',
     'units',
     'timers',
+    'calendar',
     'audio',
     'themes',
     'settings',
   ]);
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
+  const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
 
   useEffect(() => {
     const initApp = async () => {
@@ -40,7 +44,9 @@ export const App: React.FC = () => {
       const savedTabs = localStorage.getItem('studyos_visible_tabs');
       if (savedTabs) {
         try {
-          setVisibleTabs(JSON.parse(savedTabs));
+          const parsed = JSON.parse(savedTabs);
+          if (!parsed.includes('calendar')) parsed.push('calendar');
+          setVisibleTabs(parsed);
         } catch (e) {
           console.warn('Failed to parse saved visible tabs:', e);
         }
@@ -70,16 +76,34 @@ export const App: React.FC = () => {
     initApp();
   }, []);
 
+  // Keyboard shortcut listener for Ctrl+K / Cmd+K
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsSearchOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const handleDockPositionChange = (pos: DockPosition) => {
     setDockPosition(pos);
     localStorage.setItem('studyos_dock_position', pos);
   };
 
   const handleVisibleTabsChange = (tabs: string[]) => {
-    // Ensure settings tab is always present
     const enforced = tabs.includes('settings') ? tabs : [...tabs, 'settings'];
     setVisibleTabs(enforced);
     localStorage.setItem('studyos_visible_tabs', JSON.stringify(enforced));
+  };
+
+  const handleToggleThemeMode = () => {
+    const nextDark = !currentTheme.is_dark;
+    const updated = { ...currentTheme, is_dark: nextDark };
+    setCurrentTheme(updated);
+    applyTheme(updated);
   };
 
   if (!isInitialized) {
@@ -103,6 +127,7 @@ export const App: React.FC = () => {
           setCurrentTheme(th);
           applyTheme(th);
         }}
+        onOpenSearch={() => setIsSearchOpen(true)}
       />
 
       {/* Main Workspace with Dynamic Dock Positioning */}
@@ -134,6 +159,12 @@ export const App: React.FC = () => {
 
           {activeTab === 'units' && <UnitExtractorView />}
 
+          {activeTab === 'timers' && <StudyTimersView />}
+
+          {activeTab === 'calendar' && <CalendarView />}
+
+          {activeTab === 'audio' && <SoundscapeMixer />}
+
           {activeTab === 'themes' && (
             <ThemeStudioView
               currentTheme={currentTheme}
@@ -152,14 +183,22 @@ export const App: React.FC = () => {
               onVisibleTabsChange={handleVisibleTabsChange}
             />
           )}
-
-          {activeTab === 'timers' && <StudyTimersView />}
-
-          {activeTab === 'audio' && <SoundscapeMixer />}
         </main>
 
         {/* Persistent Floating Soundscape Mini-Player */}
         <FloatingMiniPlayer />
+
+        {/* Global Command Palette (Ctrl+K) */}
+        <CommandPalette
+          isOpen={isSearchOpen}
+          onClose={() => setIsSearchOpen(false)}
+          onNavigate={(tab) => {
+            setActiveTab(tab);
+            setIsSearchOpen(false);
+          }}
+          currentTheme={currentTheme}
+          onThemeToggle={handleToggleThemeMode}
+        />
 
         {/* Right Dock */}
         {dockPosition === 'right' && (

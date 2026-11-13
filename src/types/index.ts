@@ -201,6 +201,14 @@ export interface BackupRecord {
   error_message?: string;
 }
 
+export interface BackupSnapshotInfo {
+  name: string;
+  path: string;
+  timestamp: string;
+  file_count: number;
+  size_bytes: number;
+}
+
 export type DockPosition = 'left' | 'right' | 'bottom';
 
 export interface DashboardWidget {

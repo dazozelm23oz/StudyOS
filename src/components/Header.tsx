@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Moon, Sun, ShieldCheck, HardDrive, CheckCircle2 } from 'lucide-react';
+import { Camera, Moon, Sun, ShieldCheck, HardDrive, CheckCircle2, Search } from 'lucide-react';
 import { Theme } from '../types';
 import { BUILT_IN_THEMES, applyTheme } from '../theme/themes';
 
 interface HeaderProps {
   currentTheme: Theme;
   onThemeChange: (theme: Theme) => void;
+  onOpenSearch?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ currentTheme, onThemeChange }) => {
+export const Header: React.FC<HeaderProps> = ({ currentTheme, onThemeChange, onOpenSearch }) => {
   const [time, setTime] = useState<string>('');
   const [date, setDate] = useState<string>('');
   const [isBackingUp, setIsBackingUp] = useState<boolean>(false);
@@ -110,8 +111,23 @@ export const Header: React.FC<HeaderProps> = ({ currentTheme, onThemeChange }) =
         {backupStatus && (
           <div className="text-[11px] font-mono px-3 py-1 rounded-lg bg-canvas border border-primary/40 text-primary flex items-center space-x-1.5 animate-fadeIn">
             <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
-            <span className="font-semibold">{backupStatus}</span>
+            <span className="semibold">{backupStatus}</span>
           </div>
+        )}
+
+        {/* Global Search Command Palette Button */}
+        {onOpenSearch && (
+          <button
+            onClick={onOpenSearch}
+            className="flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-mono bg-canvas hover:bg-surfaceHover border border-border hover:border-primary text-text-muted hover:text-text-main transition shadow-sm"
+            title="Global Search & Command Palette (Ctrl+K)"
+          >
+            <Search className="w-3.5 h-3.5 text-primary" />
+            <span className="hidden md:inline font-medium">Search</span>
+            <kbd className="hidden sm:inline text-[10px] bg-surface px-1.5 py-0.5 rounded border border-border text-text-faint font-bold">
+              Ctrl+K
+            </kbd>
+          </button>
         )}
 
         {/* 1-Click Snapshot */}

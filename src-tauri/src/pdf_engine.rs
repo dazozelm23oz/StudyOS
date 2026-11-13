@@ -361,4 +361,64 @@ mod tests {
         let err = parse_page_ranges("0-5", 10).unwrap_err();
         assert!(err.contains("1-based"));
     }
+
+    #[test]
+    fn test_stress_slice_500_page_pdf() {
+        use lopdf::{dictionary, Document, Object};
+        let mut doc = Document::with_version("1.5");
+        let pages_id = doc.new_object_id();
+        let mut page_ids = Vec::new();
+
+        for _ in 1..=500 {
+            let page_id = doc.add_object(dictionary! {
+                "Type" => "Page",
+                "Parent" => pages_id,
+                "MediaBox" => vec![0.into(), 0.into(), 595.into(), 842.into()],
+            });
+            page_ids.push(page_id.into());
+        }
+
+        doc.objects.insert(
+            pages_id,
+            Object::Dictionary(dictionary! {
+                "Type" => "Pages",
+                "Kids" => page_ids,
+                "Count" => 500,
+            }),
+        );
+
+        let catalog_id = doc.add_object(dictionary! {
+            "Type" => "Catalog",
+            "Pages" => pages_id,
+        });
+        doc.trailer.set("Root", catalog_id);
+
+        let temp_dir = std::env::temp_dir();
+        let temp_src = temp_dir.join(format!("studyos_stress_500_{}.pdf", uuid::Uuid::new_v4()));
+        doc.save(&temp_src).expect("Failed to save 500-page dummy PDF");
+
+        // Verify document has 500 pages
+        let loaded = Document::load(&temp_src).expect("Failed to load 500-page dummy PDF");
+        assert_eq!(loaded.get_pages().len(), 500);
+
+        // Slice pages: 1-50, 100-150, 400-500 (202 pages total)
+        let res = slice_pdf_pages(
+            &temp_src.to_string_lossy(),
+            "stress_test_subject",
+            "1-50, 100-150, 400-500",
+            "Stress Test Unit",
+        )
+        .expect("Slicing 500-page PDF failed");
+
+        assert_eq!(res.page_count, 202);
+        assert!(Path::new(&res.stored_path).exists());
+
+        // Verify sliced PDF is readable and has exactly 202 pages
+        let sliced_doc = Document::load(&res.stored_path).expect("Failed to load sliced output");
+        assert_eq!(sliced_doc.get_pages().len(), 202);
+
+        // Clean up temporary test files
+        let _ = fs::remove_file(&temp_src);
+        let _ = fs::remove_file(&res.stored_path);
+    }
 }

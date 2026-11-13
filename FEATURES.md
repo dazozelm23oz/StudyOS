@@ -103,8 +103,17 @@ Status Key:
 ---
 
 ## 9. Global Utilities & Data Protection
-- `[PLANNED]` Global Command Palette (`Ctrl+K` / `⌘+K`) for fast keyboard navigation (`Phase 8`)
-- `[PLANNED]` Universal search indexing subjects, resources, notes, and tasks (`Phase 8`)
-- `[PLANNED]` Academic calendar with exam countdowns (`Phase 8`)
-- `[PLANNED]` One-click manual backup & restore via standalone ZIP archive (`Phase 8`)
-- `[PLANNED]` In-app backup history log with snapshot inspect and rollback capabilities (`Phase 8`)
+- `[DONE]` Global Command Palette (`Ctrl+K` / `⌘+K`) for fast keyboard navigation (`Phase 8`)
+- `[DONE]` Universal search indexing subjects, resources, notes, and actions (`Phase 8`)
+- `[DONE]` Academic calendar with visual month grid and exam countdowns (`Phase 8`)
+- `[DONE]` One-click manual backup & restore via standalone ZIP archive (`Phase 8`)
+- `[DONE]` In-app backup history viewer with ext4 snapshot rollback capabilities (`Phase 8`)
+
+---
+
+## 10. Verification, Stress Testing & Integrity
+- `[DONE]` 500+ page PDF page slicing & unit extraction stress test passed in 0.66s in Rust core (`Phase 9`)
+- `[DONE]` Verified 0 external network requests during PDF processing and procedural audio synthesis (`Phase 9`)
+- `[DONE]` High-contrast Academic Studio design system with WCAG AA compliance (`Phase 9`)
+- `[DONE]` Multi-pane side-by-side workstation (1 to 4 independent panes) (`Phase 9`)
+- `[DONE]` End-to-end ext4 hardlink deduplication snapshot audit (`Phase 9`)

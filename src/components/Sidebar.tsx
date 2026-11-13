@@ -5,6 +5,7 @@ import {
   BookOpen,
   Scissors,
   Clock,
+  Calendar,
   Volume2,
   Palette,
   Settings,
@@ -19,6 +20,7 @@ export type NavTab =
   | 'pdf_viewer'
   | 'units'
   | 'timers'
+  | 'calendar'
   | 'audio'
   | 'themes'
   | 'settings';
@@ -36,6 +38,7 @@ export const ALL_NAV_ITEMS: NavItemDef[] = [
   { id: 'pdf_viewer', label: 'PDF Workstation', icon: <BookOpen className="w-4 h-4" /> },
   { id: 'units', label: 'Unit Extractor', icon: <Scissors className="w-4 h-4" /> },
   { id: 'timers', label: 'Study Timers', icon: <Clock className="w-4 h-4" /> },
+  { id: 'calendar', label: 'Calendar & Exams', icon: <Calendar className="w-4 h-4" /> },
   { id: 'audio', label: 'Rain & Audio', icon: <Volume2 className="w-4 h-4" /> },
   { id: 'themes', label: 'Theme Studio', icon: <Palette className="w-4 h-4" /> },
   { id: 'settings', label: 'Settings & Vault', icon: <Settings className="w-4 h-4" />, isMandatory: true },
