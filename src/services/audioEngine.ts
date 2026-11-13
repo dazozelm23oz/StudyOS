@@ -1,3 +1,4 @@
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { AudioPreset, AudioLayer } from '../types';
 
 class StudyAudioEngine {
@@ -38,7 +39,7 @@ class StudyAudioEngine {
   private listeners: ((playing: boolean, preset: AudioPreset) => void)[] = [];
 
   constructor() {
-    // 2. Global user gesture listener: Force-resumes WebKitGTK AudioContext on every click/touch
+    // Global user gesture listener: Force-resumes WebKitGTK AudioContext on every click/touch
     if (typeof window !== 'undefined') {
       const handleUserGesture = () => {
         if (this.ctx && this.ctx.state === 'suspended') {
@@ -56,13 +57,14 @@ class StudyAudioEngine {
 
   /**
    * Initializes or verifies the AudioContext with WebKitGTK-compatible state monitoring
+   * Ensures masterGain is created, connected to destination, and has volume applied
    */
   public async ensureContext(): Promise<AudioContext> {
     if (!this.ctx) {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       this.ctx = new AudioCtx();
 
-      // 4. WebKitGTK Compatible Event Listening
+      // WebKitGTK Compatible Event Listening
       this.ctx.onstatechange = () => {
         console.log("AudioContext state:", this.ctx?.state);
       };
@@ -70,9 +72,15 @@ class StudyAudioEngine {
       this.masterGain = this.ctx.createGain();
       this.masterGain.gain.setValueAtTime(this.activePreset.master_volume, this.ctx.currentTime);
       this.masterGain.connect(this.ctx.destination);
+    } else if (this.masterGain) {
+      this.masterGain.gain.setValueAtTime(this.activePreset.master_volume, this.ctx.currentTime);
+      try {
+        this.masterGain.disconnect();
+      } catch (e) {}
+      this.masterGain.connect(this.ctx.destination);
     }
 
-    // 2. Explicit Context Resumption check
+    // Explicit Context Resumption check
     if (this.ctx.state === 'suspended') {
       try {
         await this.ctx.resume();
@@ -164,7 +172,7 @@ class StudyAudioEngine {
   }
 
   /**
-   * Primary playback toggle with explicit resumption and user click protection
+   * Primary playback toggle with explicit resumption, user click protection, and manual override tracking
    */
   public async togglePlay() {
     this.manualOverride = true;
@@ -185,6 +193,13 @@ class StudyAudioEngine {
     await this.ensureContext();
     await this.forceResumeContext();
     if (!this.ctx || !this.masterGain) return;
+
+    // Ensure master gain is refreshed and cleanly connected to destination
+    this.masterGain.gain.setValueAtTime(this.activePreset.master_volume, this.ctx.currentTime);
+    try {
+      this.masterGain.disconnect();
+    } catch (e) {}
+    this.masterGain.connect(this.ctx.destination);
 
     this.isPlaying = true;
 
@@ -216,7 +231,7 @@ class StudyAudioEngine {
   }
 
   /**
-   * Stops playback and safely disconnects all nodes
+   * Stops playback and safely disconnects all nodes and attached DOM elements
    */
   public stop() {
     this.isPlaying = false;
@@ -260,9 +275,14 @@ class StudyAudioEngine {
       this.thunderTimer = null;
     }
 
-    // Stop fallback HTMLAudioElement
+    // Stop and remove fallback HTMLAudioElement from DOM
     if (this.customAudio) {
-      this.customAudio.pause();
+      try {
+        this.customAudio.pause();
+        if (this.customAudio.parentNode) {
+          this.customAudio.parentNode.removeChild(this.customAudio);
+        }
+      } catch (e) {}
       this.customAudio = null;
       (window as any).__studyos_custom_audio = null;
     }
@@ -296,7 +316,8 @@ class StudyAudioEngine {
   }
 
   /**
-   * 1 & 3. Procedural Rain generator with Garbage Collection Prevention and Explicit Loop Flag
+   * Procedural Rain generator: Generates continuous pink/white noise, sets loop bounds,
+   * connects source -> lowpass filter -> gain -> masterGain, and prevents GC.
    */
   private startRainNode(volume: number) {
     if (!this.ctx || !this.masterGain) return;
@@ -324,22 +345,22 @@ class StudyAudioEngine {
       b3 = 0.86650 * b3 + white * 0.3104856;
       b4 = 0.55000 * b4 + white * 0.5329522;
       b5 = -0.7616 * b5 - white * 0.0168980;
-      data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.08;
+      data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.25;
       b6 = white * 0.115926;
     }
 
     const source = this.ctx.createBufferSource();
     source.buffer = buffer;
 
-    // 3. THE LOOP FLAG: Explicitly set on generated rain node
+    // THE LOOP FLAG: Explicitly set on generated rain node
     source.loop = true;
     source.loopStart = 0;
     source.loopEnd = buffer.duration;
 
-    // Lowpass filter for soft rainfall timbre
+    // Lowpass filter for natural rainfall acoustics
     this.rainFilter = this.ctx.createBiquadFilter();
     this.rainFilter.type = 'lowpass';
-    this.rainFilter.frequency.setValueAtTime(1200, this.ctx.currentTime);
+    this.rainFilter.frequency.setValueAtTime(1400, this.ctx.currentTime);
 
     this.rainGain = this.ctx.createGain();
     this.rainGain.gain.setValueAtTime(volume, this.ctx.currentTime);
@@ -348,7 +369,7 @@ class StudyAudioEngine {
     this.rainFilter.connect(this.rainGain);
     this.rainGain.connect(this.masterGain);
 
-    // 1. GARBAGE COLLECTION PREVENTER: Retain reference in class property & window registry
+    // GARBAGE COLLECTION PREVENTER: Retain reference in class property & window registry
     this.activeSourceNode = source;
     ((window as any).__studyos_active_nodes = (window as any).__studyos_active_nodes || new Set()).add(source);
 
@@ -357,6 +378,14 @@ class StudyAudioEngine {
 
   private startWindNode(volume: number) {
     if (!this.ctx || !this.masterGain || !this.rainFilter) return;
+
+    if (this.windOsc) {
+      try {
+        this.windOsc.stop();
+        this.windOsc.disconnect();
+      } catch (e) {}
+      this.windOsc = null;
+    }
 
     this.windOsc = this.ctx.createOscillator();
     this.windOsc.frequency.setValueAtTime(0.18, this.ctx.currentTime);
@@ -439,7 +468,10 @@ class StudyAudioEngine {
   }
 
   /**
-   * 1 & 3. Local audio playback via Web Audio API AudioBufferSourceNode with Garbage Collection Prevention and Explicit Loop Flag
+   * Custom Audio Playback:
+   * 1. Uses convertFileSrc to bypass Tauri CSP for local files
+   * 2. Decodes via Web Audio API with loop flag
+   * 3. Attaches fallback HTMLAudioElement to the DOM for WebKitGTK compliance
    */
   private async startCustomAudio(sourcePath: string, volume: number) {
     await this.ensureContext();
@@ -455,26 +487,36 @@ class StudyAudioEngine {
       this.activeCustomNode = null;
     }
 
-    // Stop fallback HTMLAudioElement if running
+    // Stop and remove fallback HTMLAudioElement if running
     if (this.customAudio) {
-      this.customAudio.pause();
+      try {
+        this.customAudio.pause();
+        if (this.customAudio.parentNode) {
+          this.customAudio.parentNode.removeChild(this.customAudio);
+        }
+      } catch (e) {}
       this.customAudio = null;
     }
 
+    // Convert local filesystem paths to safe Tauri asset URLs to bypass CSP
+    const safeUrl = (sourcePath.startsWith('blob:') || sourcePath.startsWith('data:') || sourcePath.startsWith('asset:'))
+      ? sourcePath
+      : convertFileSrc(sourcePath);
+
     try {
-      // Decode audio data into native AudioBuffer for reliable WebKit Web Audio streaming
-      let audioBuffer = this.audioBufferCache.get(sourcePath);
+      // Decode audio data into native AudioBuffer for reliable Web Audio streaming
+      let audioBuffer = this.audioBufferCache.get(safeUrl);
       if (!audioBuffer) {
-        const response = await fetch(sourcePath);
+        const response = await fetch(safeUrl);
         const arrayBuffer = await response.arrayBuffer();
         audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
-        this.audioBufferCache.set(sourcePath, audioBuffer);
+        this.audioBufferCache.set(safeUrl, audioBuffer);
       }
 
       const source = this.ctx.createBufferSource();
       source.buffer = audioBuffer;
 
-      // 3. THE LOOP FLAG: Explicitly set on imported audio file node
+      // THE LOOP FLAG: Explicitly set on imported audio file node
       source.loop = true;
       source.loopStart = 0;
       source.loopEnd = audioBuffer.duration;
@@ -485,7 +527,7 @@ class StudyAudioEngine {
       source.connect(this.customAudioGain);
       this.customAudioGain.connect(this.masterGain);
 
-      // 1. GARBAGE COLLECTION PREVENTER: Retain reference in class property & window registry
+      // GARBAGE COLLECTION PREVENTER: Retain reference in class property & window registry
       this.activeCustomNode = source;
       ((window as any).__studyos_active_nodes = (window as any).__studyos_active_nodes || new Set()).add(source);
 
@@ -497,11 +539,14 @@ class StudyAudioEngine {
 
       source.start(0);
     } catch (err) {
-      console.warn("Web Audio decodeAudioData failed, falling back to HTMLAudioElement:", err);
-      // Fallback with anti-GC anchoring
-      this.customAudio = new Audio(sourcePath);
-      this.customAudio.loop = true; // 3. The Loop Flag for HTMLAudioElement
+      console.warn("Web Audio decodeAudioData failed, falling back to DOM-attached HTMLAudioElement:", err);
+      // Fallback with mandatory DOM attachment for WebKitGTK
+      this.customAudio = new Audio(safeUrl);
+      this.customAudio.loop = true;
       this.customAudio.volume = volume;
+      this.customAudio.style.display = 'none';
+      document.body.appendChild(this.customAudio);
+
       (window as any).__studyos_custom_audio = this.customAudio;
       this.customAudio.play().catch((e) => console.warn("Could not play custom audio element:", e));
     }
