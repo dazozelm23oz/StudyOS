@@ -98,8 +98,10 @@ export const SoundscapeMixer: React.FC = () => {
     }
   };
 
-  const handleTogglePlay = () => {
-    audioEngine.togglePlay();
+  const handleTogglePlay = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    await audioEngine.forceResumeContext();
+    await audioEngine.togglePlay();
   };
 
   const handleMasterVolumeChange = (vol: number) => {
@@ -172,6 +174,7 @@ export const SoundscapeMixer: React.FC = () => {
         <div className="flex items-center space-x-4">
           <button
             onClick={handleTogglePlay}
+            onPointerDown={() => audioEngine.forceResumeContext()}
             className={`px-6 py-3 rounded-xl font-mono font-bold text-xs uppercase tracking-wider flex items-center space-x-2.5 transition shadow-md ${
               isPlaying
                 ? 'bg-warning text-canvas hover:brightness-110'

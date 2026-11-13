@@ -38,8 +38,10 @@ export const FloatingMiniPlayer: React.FC = () => {
     return () => unsub();
   }, []);
 
-  const handleTogglePlay = () => {
-    audioEngine.togglePlay();
+  const handleTogglePlay = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    await audioEngine.forceResumeContext();
+    await audioEngine.togglePlay();
   };
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,6 +105,7 @@ export const FloatingMiniPlayer: React.FC = () => {
             {/* Play/Pause Button */}
             <button
               onClick={handleTogglePlay}
+              onPointerDown={() => audioEngine.forceResumeContext()}
               className={`w-9 h-9 rounded-xl flex items-center justify-center transition shadow-sm flex-shrink-0 ${
                 isPlaying
                   ? 'bg-success text-canvas hover:brightness-110'
