@@ -6,6 +6,7 @@ fn main() {
     unsafe {
         std::env::set_var("PULSE_PROP_media.role", "music");
         std::env::set_var("PULSE_PROP_media.category", "playback");
+        std::env::set_var("PULSE_LATENCY_MSEC", "60");
     }
     studyos_lib::run();
 }

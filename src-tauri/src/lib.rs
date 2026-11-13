@@ -220,7 +220,7 @@ pub fn run() {
         .setup(|app| {
             #[cfg(target_os = "linux")]
             {
-                if let Some(window) = app.get_webview_window("main") {
+                for (_label, window) in app.webview_windows() {
                     let _ = window.with_webview(|webview| {
                         let wk_view = webview.inner();
                         if let Some(settings) = wk_view.settings() {
