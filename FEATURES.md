@@ -23,18 +23,18 @@ Status Key:
 - `[DONE]` Living project documentation & Git repository (`Phase 0`)
 - `[DONE]` External ext4 hardlink auto-backup script (`rsync --link-dest`) (`Phase 1b`)
 - `[DONE]` Automated Git commit & push synchronization engine (`Phase 1b`)
-- `[IN PROGRESS]` Tauri v2 desktop shell with native Linux webview (`Phase 1`)
-- `[IN PROGRESS]` React 19 + TypeScript + Vite + Tailwind CSS design system (`Phase 1`)
-- `[IN PROGRESS]` SQLite relational database engine with automated migrations (`Phase 1`)
+- `[DONE]` Tauri v2 desktop shell with native Linux webview (`Phase 1`)
+- `[DONE]` React 19 + TypeScript + Vite + Tailwind CSS design system (`Phase 1`)
+- `[DONE]` SQLite relational database engine with automated migrations (`Phase 1`)
 
 ---
 
 ## 2. Academic Hierarchy & Profile
-- `[PLANNED]` Academic hierarchy CRUD (Year → Semester → Subject → Resource) (`Phase 2`)
+- `[IN PROGRESS]` Academic hierarchy CRUD (Year → Semester → Subject → Resource) (`Phase 2`)
+- `[IN PROGRESS]` Student profile screen (name, major, university, dates, avatar) (`Phase 2`)
 - `[PLANNED]` Drag-and-drop reordering at every level (`@dnd-kit`) (`Phase 2`)
 - `[PLANNED]` Custom fields (arbitrary key/value pairs) on profile and hierarchy nodes (`Phase 2`)
 - `[PLANNED]` Per-subject metadata (code, credits, instructor, notes, custom colors) (`Phase 2`)
-- `[PLANNED]` Student profile screen (name, major, university, dates, avatar) (`Phase 2`)
 
 ---
 
