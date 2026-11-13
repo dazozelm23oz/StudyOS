@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2026-11-13 (Massive Batch Build: Themes, Phases 2, 3, 4, 5)
+- **UI/UX & Deep Theme Engine (Part A)**:
+  - Made "Settings & Vault" tab mandatory and permanently visible.
+  - Relocated dock positioning switcher cleanly into the Settings menu.
+  - Dynamically styled top-right theme selector to match the active theme.
+  - Implemented global root CSS dark/light mode toggle.
+  - Added UI Scale slider (85% to 130%) dynamically adjusting font sizes and padding.
+  - Added Custom Theme Creator with color pickers for all 12 design tokens, typography selection (Inter, JetBrains Mono, Space Grotesk, System Sans), and full theme export/import.
+  - Added 5+ new curated presets: *Solarized Light*, *Midnight OLED*, *Forest Focus*, *Warm Academia*, and *Cyber Sunset*.
+  - Expanded dashboard widget catalog with Study Streak, Recently Opened PDFs, and Quick Tools.
+- **Phase 2: Academic Hierarchy CRUD & Drag-and-Drop (Part B)**:
+  - Implemented complete relational hierarchy CRUD for Year → Semester → Subject → Resource.
+  - Integrated `@dnd-kit/core` and `@dnd-kit/sortable` for fluid drag-and-drop reordering with persistent SQLite updates.
+- **Phase 3: Offline PDF Ingestion & Library (Part C)**:
+  - Implemented pure Rust backend command `import_pdf` with SHA-256 file hashing and deduplication check.
+  - Automatically copies imported documents into managed library directory `./data/library/<subject_id>/<hash>.pdf`.
+  - Employs `lopdf` to extract page count, title metadata, and outline TOC/bookmarks into SQLite.
+- **Phase 4: In-App Multi-Pane PDF Viewer (Part D)**:
+  - Built local PDF.js canvas viewer (`PdfViewerPane.tsx`) with 100% offline bundled worker.
+  - Multi-pane side-by-side workstation supporting 1 to 4 independent panes (`PdfWorkstationView.tsx`).
+  - Session state memory saving current page, zoom level, and scroll position to SQLite per document.
+  - Non-destructive SVG highlight layer with custom color picker, persistent annotations, and in-PDF text search.
+- **Phase 5: PDF Unit Extraction Engine (Part E)**:
+  - Implemented page range syntax parser in Rust (`parse_page_ranges`) supporting expressions like `"1-5, 8-12"`.
+  - Implemented unit page extraction via `lopdf::Document::delete_pages` into single merged PDF or split chapters.
+  - Built `UnitExtractorView.tsx` with TOC bookmark auto-import, range validation, and automatic linkage to Subject Resources.
+
 ### Changed - 2026-11-13 (UI/UX Design Overhaul & Dynamic Layout Engine)
 - **High-Contrast Academic Design System**: Replaced neon hacker-terminal aesthetics with *Academic Studio* — an elegant, high-contrast theme featuring rich indigo/sky/amber accents, solid opaque cards (95% opacity), and WCAG AA compliant text contrast (`#ffffff` headings, `#e2e8f0` body text, and `#94a3b8` secondary telemetry labels).
 - **Host Telemetry & Contrast Fixes**: Eliminated dim transparent cards. Host Telemetry widget, status indicators, and all secondary metadata now render with high-contrast text against solid slate backgrounds.

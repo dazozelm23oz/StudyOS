@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Palette, Check, Sparkles, Download, Upload, Sliders, Maximize2, Layers } from 'lucide-react';
-import { Theme, ThemeLayout } from '../types';
+import { Palette, Check, Download, Upload, Sliders, Plus, Sparkles, X, Type, Layers } from 'lucide-react';
+import { Theme, ThemeLayout, ThemeColors } from '../types';
 import { BUILT_IN_THEMES, applyTheme, DEFAULT_LAYOUT } from '../theme/themes';
+import { dbService } from '../services/db';
 
 interface ThemeStudioViewProps {
   currentTheme: Theme;
@@ -10,6 +11,10 @@ interface ThemeStudioViewProps {
 
 export const ThemeStudioView: React.FC<ThemeStudioViewProps> = ({ currentTheme, onThemeSelect }) => {
   const [layout, setLayout] = useState<ThemeLayout>(currentTheme.layout || DEFAULT_LAYOUT);
+  const [showCreator, setShowCreator] = useState(false);
+  const [newThemeName, setNewThemeName] = useState('');
+  const [newThemeDesc, setNewThemeDesc] = useState('');
+  const [newColors, setNewColors] = useState<ThemeColors>({ ...currentTheme.colors });
 
   const updateLayout = (partial: Partial<ThemeLayout>) => {
     const updated = { ...layout, ...partial };
@@ -19,17 +24,45 @@ export const ThemeStudioView: React.FC<ThemeStudioViewProps> = ({ currentTheme, 
     applyTheme(updatedTheme);
   };
 
+  const handleCreateTheme = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newThemeName.trim()) return;
+
+    const created: Theme = {
+      id: 'custom-' + Date.now(),
+      name: newThemeName.trim(),
+      description: newThemeDesc.trim() || 'Custom user created study theme.',
+      is_built_in: false,
+      is_dark: currentTheme.is_dark,
+      colors: { ...newColors },
+      layout: { ...layout },
+    };
+
+    await dbService.saveTheme(created);
+    onThemeSelect(created);
+    applyTheme(created);
+    setShowCreator(false);
+    setNewThemeName('');
+    setNewThemeDesc('');
+  };
+
   const handleImportJson = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const parsed = JSON.parse(event.target?.result as string);
         if (parsed.colors) {
-          onThemeSelect(parsed);
-          applyTheme(parsed);
-          if (parsed.layout) setLayout(parsed.layout);
+          const themeToSave = {
+            ...parsed,
+            id: parsed.id || 'imported-' + Date.now(),
+            is_built_in: false,
+          };
+          await dbService.saveTheme(themeToSave);
+          onThemeSelect(themeToSave);
+          applyTheme(themeToSave);
+          if (themeToSave.layout) setLayout(themeToSave.layout);
         }
       } catch (err) {
         alert('Invalid theme JSON file.');
@@ -41,25 +74,35 @@ export const ThemeStudioView: React.FC<ThemeStudioViewProps> = ({ currentTheme, 
   return (
     <div className="flex-1 overflow-y-auto p-6 space-y-6">
       {/* Header */}
-      <div className="hud-panel p-6">
-        <div className="flex items-center space-x-2 text-primary font-mono text-xs uppercase mb-1 font-bold">
-          <Palette className="w-4 h-4" />
-          <span>DESIGN SYSTEM ENGINE</span>
+      <div className="hud-panel p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center space-x-2 text-primary font-mono text-xs uppercase mb-1 font-bold">
+            <Palette className="w-4 h-4" />
+            <span>DESIGN SYSTEM STUDIO</span>
+          </div>
+          <h1 className="text-2xl font-bold font-mono tracking-tight text-text-main">
+            Theme Engine & Customization
+          </h1>
+          <p className="text-xs text-text-muted mt-1 font-mono">
+            Full control over color tokens, layout geometry, UI scaling, and custom presets.
+          </p>
         </div>
-        <h1 className="text-2xl font-bold font-mono tracking-tight text-text-main">
-          Theme Studio & Aesthetic Customization
-        </h1>
-        <p className="text-xs text-text-muted mt-1 font-mono">
-          Deep customization beyond hex codes: UI Density, Corner Radius, and Surface Opacity.
-        </p>
+
+        <button
+          onClick={() => setShowCreator(true)}
+          className="px-4 py-2.5 rounded-xl bg-primary text-canvas font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 shadow-sm flex items-center space-x-2 self-start sm:self-auto transition"
+        >
+          <Plus className="w-4 h-4 stroke-[3]" />
+          <span>CREATE NEW THEME</span>
+        </button>
       </div>
 
-      {/* Preset Cards */}
+      {/* Preset Cards Catalog (including 5+ new presets) */}
       <div className="space-y-3">
         <div className="font-mono text-xs font-bold text-text-faint uppercase tracking-wider">
-          CURATED ACADEMIC PRESETS
+          CURATED ACADEMIC PRESET CATALOG
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {BUILT_IN_THEMES.map((theme) => {
             const isSelected = currentTheme.id === theme.id;
             return (
@@ -70,7 +113,7 @@ export const ThemeStudioView: React.FC<ThemeStudioViewProps> = ({ currentTheme, 
                   applyTheme(theme);
                   if (theme.layout) setLayout(theme.layout);
                 }}
-                className={`p-5 rounded-xl border cursor-pointer transition-all ${
+                className={`p-4 rounded-xl border cursor-pointer transition-all ${
                   isSelected
                     ? 'border-primary bg-surface shadow-md'
                     : 'border-border bg-surface hover:border-primary/50'
@@ -79,11 +122,6 @@ export const ThemeStudioView: React.FC<ThemeStudioViewProps> = ({ currentTheme, 
                 <div className="flex items-center justify-between mb-2">
                   <div className="font-mono text-sm font-bold text-text-main flex items-center space-x-2">
                     <span>{theme.name}</span>
-                    {theme.is_built_in && (
-                      <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-primary font-semibold">
-                        Preset
-                      </span>
-                    )}
                   </div>
                   {isSelected && (
                     <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center text-canvas shadow-sm">
@@ -92,39 +130,39 @@ export const ThemeStudioView: React.FC<ThemeStudioViewProps> = ({ currentTheme, 
                   )}
                 </div>
 
-                <p className="text-xs text-text-muted font-sans mb-4 leading-relaxed">
+                <p className="text-xs text-text-muted font-sans mb-3 leading-relaxed line-clamp-2">
                   {theme.description}
                 </p>
 
                 {/* Color Swatch Preview Palette */}
-                <div className="flex items-center space-x-2 p-2.5 rounded-xl bg-canvas border border-border">
+                <div className="flex items-center space-x-1.5 p-2 rounded-lg bg-canvas border border-border">
                   <div
-                    className="w-6 h-6 rounded-lg border border-white/10"
+                    className="w-5 h-5 rounded-md border border-white/10"
                     style={{ backgroundColor: theme.colors.canvas }}
                     title="Canvas"
                   />
                   <div
-                    className="w-6 h-6 rounded-lg border border-white/10"
+                    className="w-5 h-5 rounded-md border border-white/10"
                     style={{ backgroundColor: theme.colors.surface }}
                     title="Surface"
                   />
                   <div
-                    className="w-6 h-6 rounded-lg border border-white/10"
+                    className="w-5 h-5 rounded-md border border-white/10"
                     style={{ backgroundColor: theme.colors.border }}
                     title="Border"
                   />
                   <div
-                    className="w-6 h-6 rounded-lg shadow-sm"
+                    className="w-5 h-5 rounded-md shadow-sm"
                     style={{ backgroundColor: theme.colors.primary }}
                     title="Primary"
                   />
                   <div
-                    className="w-6 h-6 rounded-lg shadow-sm"
+                    className="w-5 h-5 rounded-md shadow-sm"
                     style={{ backgroundColor: theme.colors.accent }}
                     title="Accent"
                   />
                   <div
-                    className="w-6 h-6 rounded-lg shadow-sm"
+                    className="w-5 h-5 rounded-md shadow-sm"
                     style={{ backgroundColor: theme.colors.success }}
                     title="Success"
                   />
@@ -135,23 +173,57 @@ export const ThemeStudioView: React.FC<ThemeStudioViewProps> = ({ currentTheme, 
         </div>
       </div>
 
-      {/* Deep Layout & Geometry Customization Settings */}
+      {/* Deep Layout & Typography Customization Settings */}
       <div className="hud-panel p-6 space-y-5">
         <div className="font-mono text-sm font-bold text-text-main flex items-center space-x-2">
           <Sliders className="w-4 h-4 text-primary" />
-          <span>Layout Geometry & Density Controls</span>
+          <span>Geometry, UI Scale & Typography Controls</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-mono text-xs">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 font-mono text-xs">
+          {/* UI Scale Slider */}
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <label className="text-text-muted font-semibold">UI Scale</label>
+              <span className="text-primary font-bold">{Math.round((layout.uiScale || 1.0) * 100)}%</span>
+            </div>
+            <input
+              type="range"
+              min="85"
+              max="130"
+              step="5"
+              value={Math.round((layout.uiScale || 1.0) * 100)}
+              onChange={(e) => updateLayout({ uiScale: Number(e.target.value) / 100 })}
+              className="w-full accent-primary bg-canvas cursor-pointer"
+            />
+            <div className="text-[11px] text-text-faint">Scales base typography & window elements</div>
+          </div>
+
+          {/* Typography Selector */}
+          <div className="space-y-2">
+            <label className="text-text-muted font-semibold block">Typography Font</label>
+            <select
+              value={layout.fontFamily || 'Inter'}
+              onChange={(e) => updateLayout({ fontFamily: e.target.value as any })}
+              className="w-full bg-canvas border border-border rounded-lg px-2.5 py-1.5 text-xs font-mono text-text-main focus:outline-none focus:border-primary"
+            >
+              <option value="Inter">Inter (Academic Modern)</option>
+              <option value="JetBrains Mono">JetBrains Mono (Technical)</option>
+              <option value="Space Grotesk">Space Grotesk (Futuristic)</option>
+              <option value="System Sans">System Sans (Native OS)</option>
+            </select>
+            <div className="text-[11px] text-text-faint">Applied globally to all interfaces</div>
+          </div>
+
           {/* UI Density */}
           <div className="space-y-2">
             <label className="text-text-muted font-semibold block">UI Density</label>
-            <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-canvas border border-border">
+            <div className="grid grid-cols-3 gap-1 p-1 rounded-lg bg-canvas border border-border">
               {(['compact', 'comfortable', 'spacious'] as const).map((density) => (
                 <button
                   key={density}
                   onClick={() => updateLayout({ density })}
-                  className={`py-2 rounded-lg text-xs capitalize transition ${
+                  className={`py-1.5 rounded text-[11px] capitalize transition ${
                     layout.density === density
                       ? 'bg-primary text-canvas font-bold shadow-sm'
                       : 'text-text-muted hover:text-text-main'
@@ -161,18 +233,18 @@ export const ThemeStudioView: React.FC<ThemeStudioViewProps> = ({ currentTheme, 
                 </button>
               ))}
             </div>
-            <div className="text-[11px] text-text-faint">Paddings, list spacing, and content flow</div>
+            <div className="text-[11px] text-text-faint">Paddings and gap spacing</div>
           </div>
 
           {/* Corner Radius */}
           <div className="space-y-2">
             <label className="text-text-muted font-semibold block">Corner Radius</label>
-            <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-canvas border border-border">
+            <div className="grid grid-cols-3 gap-1 p-1 rounded-lg bg-canvas border border-border">
               {(['sharp', 'rounded', 'pill'] as const).map((rad) => (
                 <button
                   key={rad}
                   onClick={() => updateLayout({ borderRadius: rad })}
-                  className={`py-2 rounded-lg text-xs capitalize transition ${
+                  className={`py-1.5 rounded text-[11px] capitalize transition ${
                     layout.borderRadius === rad
                       ? 'bg-primary text-canvas font-bold shadow-sm'
                       : 'text-text-muted hover:text-text-main'
@@ -182,25 +254,7 @@ export const ThemeStudioView: React.FC<ThemeStudioViewProps> = ({ currentTheme, 
                 </button>
               ))}
             </div>
-            <div className="text-[11px] text-text-faint">Panel and button border curvature</div>
-          </div>
-
-          {/* Card Opacity */}
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <label className="text-text-muted font-semibold">Card Opacity</label>
-              <span className="text-primary font-bold">{Math.round(layout.cardOpacity * 100)}%</span>
-            </div>
-            <input
-              type="range"
-              min="85"
-              max="100"
-              step="1"
-              value={Math.round(layout.cardOpacity * 100)}
-              onChange={(e) => updateLayout({ cardOpacity: Number(e.target.value) / 100 })}
-              className="w-full accent-primary bg-canvas cursor-pointer"
-            />
-            <div className="text-[11px] text-text-faint">Solid cards ensure high contrast text</div>
+            <div className="text-[11px] text-text-faint">Border curvature of panels</div>
           </div>
         </div>
       </div>
@@ -208,9 +262,9 @@ export const ThemeStudioView: React.FC<ThemeStudioViewProps> = ({ currentTheme, 
       {/* JSON Import/Export Actions */}
       <div className="hud-panel p-5 flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-xs">
         <div>
-          <div className="text-text-main font-bold">Theme & Layout Portability</div>
+          <div className="text-text-main font-bold">Theme Matrix Portability</div>
           <div className="text-text-muted text-xs mt-0.5">
-            Export complete theme JSON (colors + density + radius + opacity) or import shared presets
+            Export full theme JSON (colors + typography + layout + scale) or import custom themes
           </div>
         </div>
 
@@ -239,6 +293,109 @@ export const ThemeStudioView: React.FC<ThemeStudioViewProps> = ({ currentTheme, 
           </button>
         </div>
       </div>
+
+      {/* Custom Theme Creation Modal */}
+      {showCreator && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <form
+            onSubmit={handleCreateTheme}
+            className="max-w-2xl w-full bg-surface border border-border rounded-2xl p-6 space-y-5 shadow-2xl overflow-y-auto max-h-[90vh]"
+          >
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="font-mono text-base font-bold text-text-main flex items-center space-x-2">
+                <Sparkles className="w-5 h-5 text-primary" />
+                <span>Custom Theme Creator</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreator(false)}
+                className="text-text-muted hover:text-text-main"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 font-mono text-xs">
+              <div>
+                <label className="block text-text-muted mb-1 font-semibold">Theme Name</label>
+                <input
+                  type="text"
+                  value={newThemeName}
+                  onChange={(e) => setNewThemeName(e.target.value)}
+                  placeholder="e.g. Kyoto Night"
+                  required
+                  className="w-full bg-canvas border border-border rounded-lg px-3 py-2 text-text-main focus:outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-text-muted mb-1 font-semibold">Description</label>
+                <input
+                  type="text"
+                  value={newThemeDesc}
+                  onChange={(e) => setNewThemeDesc(e.target.value)}
+                  placeholder="Brief aesthetic description..."
+                  className="w-full bg-canvas border border-border rounded-lg px-3 py-2 text-text-main focus:outline-none focus:border-primary"
+                />
+              </div>
+
+              {/* Color Matrix Pickers */}
+              <div className="space-y-2 pt-2">
+                <div className="font-bold text-text-main">Color Tokens (Click to adjust)</div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {[
+                    { label: 'Canvas (BG)', key: 'canvas' },
+                    { label: 'Surface (Cards)', key: 'surface' },
+                    { label: 'Border', key: 'border' },
+                    { label: 'Primary Accent', key: 'primary' },
+                    { label: 'Secondary Accent', key: 'secondary' },
+                    { label: 'Warm Accent', key: 'accent' },
+                    { label: 'Main Text', key: 'textMain' },
+                    { label: 'Muted Text', key: 'textMuted' },
+                    { label: 'Faint Text', key: 'textFaint' },
+                    { label: 'Success', key: 'success' },
+                    { label: 'Warning', key: 'warning' },
+                    { label: 'Danger', key: 'danger' },
+                  ].map((item) => (
+                    <div key={item.key} className="p-2.5 rounded-lg bg-canvas border border-border flex items-center justify-between">
+                      <span className="text-[11px] text-text-muted">{item.label}</span>
+                      <input
+                        type="color"
+                        value={(newColors as any)[item.key]}
+                        onChange={(e) =>
+                          setNewColors({
+                            ...newColors,
+                            [item.key]: e.target.value,
+                            ...(item.key === 'primary' ? { primaryGlow: e.target.value + '55' } : {}),
+                            ...(item.key === 'accent' ? { accentGlow: e.target.value + '55' } : {}),
+                          })
+                        }
+                        className="w-8 h-8 rounded border border-border cursor-pointer bg-transparent"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-3 border-t border-border font-mono text-xs">
+              <button
+                type="button"
+                onClick={() => setShowCreator(false)}
+                className="px-4 py-2 rounded-lg bg-canvas border border-border text-text-muted hover:text-text-main"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 rounded-lg bg-primary text-canvas font-bold hover:brightness-110 shadow-sm"
+              >
+                Save & Apply Theme
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 };

@@ -3,12 +3,14 @@ import { Header } from './components/Header';
 import { Sidebar, NavTab } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
 import { HierarchyView } from './components/HierarchyView';
+import { PdfWorkstationView } from './components/PdfWorkstationView';
+import { UnitExtractorView } from './components/UnitExtractorView';
 import { ThemeStudioView } from './components/ThemeStudioView';
 import { SettingsView } from './components/SettingsView';
 import { Theme, DockPosition } from './types';
 import { BUILT_IN_THEMES, applyTheme } from './theme/themes';
 import { dbService } from './services/db';
-import { BookOpen, Scissors, Clock, Volume2 } from 'lucide-react';
+import { Clock, Volume2 } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
@@ -52,7 +54,6 @@ export const App: React.FC = () => {
       try {
         const savedThemes = await dbService.getThemes();
         if (savedThemes && savedThemes.length > 0) {
-          // If the first theme is the old cyberdeck, prefer our new default Academic Studio
           const found = savedThemes.find((t) => t.id === 'academic-studio') || BUILT_IN_THEMES[0];
           setCurrentTheme(found);
           applyTheme(found);
@@ -73,8 +74,10 @@ export const App: React.FC = () => {
   };
 
   const handleVisibleTabsChange = (tabs: string[]) => {
-    setVisibleTabs(tabs);
-    localStorage.setItem('studyos_visible_tabs', JSON.stringify(tabs));
+    // Ensure settings tab is always present
+    const enforced = tabs.includes('settings') ? tabs : [...tabs, 'settings'];
+    setVisibleTabs(enforced);
+    localStorage.setItem('studyos_visible_tabs', JSON.stringify(enforced));
   };
 
   if (!isInitialized) {
@@ -98,8 +101,6 @@ export const App: React.FC = () => {
           setCurrentTheme(th);
           applyTheme(th);
         }}
-        dockPosition={dockPosition}
-        onDockPositionChange={handleDockPositionChange}
       />
 
       {/* Main Workspace with Dynamic Dock Positioning */}
@@ -125,6 +126,12 @@ export const App: React.FC = () => {
 
           {activeTab === 'hierarchy' && <HierarchyView />}
 
+          {activeTab === 'pdf_viewer' && (
+            <PdfWorkstationView onNavigateToHierarchy={() => setActiveTab('hierarchy')} />
+          )}
+
+          {activeTab === 'units' && <UnitExtractorView />}
+
           {activeTab === 'themes' && (
             <ThemeStudioView
               currentTheme={currentTheme}
@@ -144,31 +151,7 @@ export const App: React.FC = () => {
             />
           )}
 
-          {/* Placeholders for Subsequent Scheduled Phases */}
-          {activeTab === 'pdf_viewer' && (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center font-mono space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-surface border border-border flex items-center justify-center text-primary shadow-sm">
-                <BookOpen className="w-6 h-6 animate-pulse" />
-              </div>
-              <div className="text-base font-bold text-text-main">PDF Workstation & Multi-Pane View</div>
-              <p className="text-xs text-text-muted max-w-sm">
-                Scheduled for Phase 4: Local PDF.js canvas, non-destructive SQLite highlights, and split view.
-              </p>
-            </div>
-          )}
-
-          {activeTab === 'units' && (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center font-mono space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-surface border border-border flex items-center justify-center text-accent shadow-sm">
-                <Scissors className="w-6 h-6 animate-pulse" />
-              </div>
-              <div className="text-base font-bold text-text-main">Unit Extractor Suite</div>
-              <p className="text-xs text-text-muted max-w-sm">
-                Scheduled for Phase 5: Range parser (e.g. "1-5,7,10-20") and offline pure-Rust extraction via lopdf.
-              </p>
-            </div>
-          )}
-
+          {/* Placeholders for Study Timers and Study Audio (Phase 6 / 6b) */}
           {activeTab === 'timers' && (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center font-mono space-y-3">
               <div className="w-12 h-12 rounded-2xl bg-surface border border-border flex items-center justify-center text-secondary shadow-sm">

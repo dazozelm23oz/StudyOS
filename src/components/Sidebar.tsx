@@ -9,8 +9,6 @@ import {
   Palette,
   Settings,
   ChevronRight,
-  ShieldCheck,
-  HardDrive,
   WifiOff,
 } from 'lucide-react';
 import { DockPosition } from '../types';
@@ -29,6 +27,7 @@ export interface NavItemDef {
   id: NavTab;
   label: string;
   icon: React.ReactNode;
+  isMandatory?: boolean;
 }
 
 export const ALL_NAV_ITEMS: NavItemDef[] = [
@@ -39,7 +38,7 @@ export const ALL_NAV_ITEMS: NavItemDef[] = [
   { id: 'timers', label: 'Study Timers', icon: <Clock className="w-4 h-4" /> },
   { id: 'audio', label: 'Rain & Audio', icon: <Volume2 className="w-4 h-4" /> },
   { id: 'themes', label: 'Theme Studio', icon: <Palette className="w-4 h-4" /> },
-  { id: 'settings', label: 'Settings & Vault', icon: <Settings className="w-4 h-4" /> },
+  { id: 'settings', label: 'Settings & Vault', icon: <Settings className="w-4 h-4" />, isMandatory: true },
 ];
 
 interface SidebarProps {
@@ -55,7 +54,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   position = 'left',
   visibleTabs = ['dashboard', 'hierarchy', 'pdf_viewer', 'units', 'timers', 'audio', 'themes', 'settings'],
 }) => {
-  const items = ALL_NAV_ITEMS.filter((item) => visibleTabs.includes(item.id));
+  // Settings is mandatory - always included!
+  const effectiveTabs = visibleTabs.includes('settings') ? visibleTabs : [...visibleTabs, 'settings'];
+  const items = ALL_NAV_ITEMS.filter((item) => item.isMandatory || effectiveTabs.includes(item.id));
 
   // --- Horizontal Bottom Dock Layout ---
   if (position === 'bottom') {
@@ -68,7 +69,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 key={item.id}
                 onClick={() => onTabChange(item.id)}
-                className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-xs font-mono font-medium transition ${
+                className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-xs font-mono font-medium transition ${
                   isActive
                     ? 'bg-primary text-canvas font-bold shadow-sm'
                     : 'text-text-muted hover:text-text-main hover:bg-surface'

@@ -48,7 +48,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const toggleTab = (tabId: string) => {
-    // Keep at least 2 tabs visible
+    // Settings is mandatory and cannot be hidden
+    if (tabId === 'settings') return;
+
     if (visibleTabs.includes(tabId)) {
       if (visibleTabs.length <= 2) return;
       onVisibleTabsChange(visibleTabs.filter((t) => t !== tabId));
@@ -116,23 +118,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {ALL_NAV_ITEMS.map((item) => {
-                const isChecked = visibleTabs.includes(item.id);
+                const isMandatory = item.id === 'settings';
+                const isChecked = isMandatory || visibleTabs.includes(item.id);
                 return (
                   <button
                     key={item.id}
                     onClick={() => toggleTab(item.id)}
-                    className={`p-2.5 rounded-lg border text-left font-mono text-xs flex items-center space-x-2.5 transition ${
+                    disabled={isMandatory}
+                    className={`p-2.5 rounded-lg border text-left font-mono text-xs flex items-center justify-between transition ${
                       isChecked
                         ? 'border-border bg-canvas text-text-main font-semibold'
                         : 'border-border/50 bg-canvas/40 text-text-faint'
-                    }`}
+                    } ${isMandatory ? 'opacity-80 cursor-default' : ''}`}
                   >
-                    {isChecked ? (
-                      <CheckSquare className="w-4 h-4 text-primary" />
-                    ) : (
-                      <Square className="w-4 h-4 text-text-faint" />
+                    <div className="flex items-center space-x-2.5">
+                      {isChecked ? (
+                        <CheckSquare className="w-4 h-4 text-primary" />
+                      ) : (
+                        <Square className="w-4 h-4 text-text-faint" />
+                      )}
+                      <span>{item.label}</span>
+                    </div>
+                    {isMandatory && (
+                      <span className="text-[10px] text-primary uppercase font-bold">Mandatory</span>
                     )}
-                    <span>{item.label}</span>
                   </button>
                 );
               })}

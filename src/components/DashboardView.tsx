@@ -15,16 +15,22 @@ import {
   Scissors,
   Layers,
   Palette,
+  Calendar,
+  Flame,
+  FileText,
+  Timer,
 } from 'lucide-react';
-import { Year, Subject, Profile, DashboardWidget } from '../types';
+import { Year, Subject, Resource, Profile, DashboardWidget } from '../types';
 import { dbService } from '../services/db';
 import { EmptyState } from './EmptyState';
 
 const DEFAULT_WIDGETS: DashboardWidget[] = [
   { id: 'w-welcome', title: 'Mission Briefing', type: 'welcome', visible: true, order: 1 },
   { id: 'w-kpis', title: 'Academic Metrics', type: 'kpis', visible: true, order: 2 },
-  { id: 'w-subjects', title: 'Active Subjects Vault', type: 'enrolled_subjects', visible: true, order: 3 },
-  { id: 'w-tools', title: 'Quick Launch Matrix', type: 'quick_tools', visible: true, order: 4 },
+  { id: 'w-streak', title: 'Study Streak & Cadence', type: 'study_streak', visible: true, order: 3 },
+  { id: 'w-recent', title: 'Recently Opened PDFs', type: 'recently_opened', visible: true, order: 4 },
+  { id: 'w-subjects', title: 'Active Subjects Vault', type: 'enrolled_subjects', visible: true, order: 5 },
+  { id: 'w-tools', title: 'Quick Launch Matrix', type: 'quick_tools', visible: true, order: 6 },
 ];
 
 interface DashboardViewProps {
@@ -35,6 +41,7 @@ interface DashboardViewProps {
 export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAddYear }) => {
   const [years, setYears] = useState<Year[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [resources, setResources] = useState<Resource[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [widgets, setWidgets] = useState<DashboardWidget[]>(DEFAULT_WIDGETS);
@@ -48,13 +55,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAddY
   const loadData = async () => {
     setLoading(true);
     try {
-      const [y, s, p] = await Promise.all([
+      const [y, s, r, p] = await Promise.all([
         dbService.getYears(),
         dbService.getSubjects(),
+        dbService.getResources(),
         dbService.getProfile(),
       ]);
       setYears(y);
       setSubjects(s);
+      setResources(r);
       setProfile(p);
     } catch (err) {
       console.error(err);
@@ -93,7 +102,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAddY
     copy[index] = copy[targetIndex];
     copy[targetIndex] = temp;
 
-    // re-assign sort order
     const reordered = copy.map((w, idx) => ({ ...w, order: idx + 1 }));
     saveWidgetLayout(reordered);
   };
@@ -145,7 +153,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAddY
           <div className="text-xs font-mono font-bold text-text-main">
             REORDER & TOGGLE DASHBOARD WIDGETS
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {sortedWidgets.map((w, idx) => (
               <div
                 key={w.id}
@@ -252,21 +260,102 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAddY
 
               <div className="hud-panel p-5">
                 <div className="flex items-center justify-between text-text-muted text-xs font-mono mb-2">
-                  <span className="font-semibold">STUDY COMPLETION</span>
-                  <CheckCircle2 className="w-4 h-4 text-success" />
+                  <span className="font-semibold">LIBRARY RESOURCES</span>
+                  <FileText className="w-4 h-4 text-secondary" />
                 </div>
-                <div className="text-3xl font-bold font-mono text-text-main">0%</div>
-                <div className="text-xs font-mono text-text-faint mt-1.5 font-medium">Units & checklists tracked</div>
+                <div className="text-3xl font-bold font-mono text-text-main">{resources.length}</div>
+                <div className="text-xs font-mono text-text-faint mt-1.5 font-medium">Textbooks & guides stored</div>
               </div>
 
               <div className="hud-panel p-5">
                 <div className="flex items-center justify-between text-text-muted text-xs font-mono mb-2">
-                  <span className="font-semibold">TIME INVESTED</span>
-                  <Clock className="w-4 h-4 text-secondary" />
+                  <span className="font-semibold">STUDY COMPLETION</span>
+                  <CheckCircle2 className="w-4 h-4 text-success" />
                 </div>
-                <div className="text-3xl font-bold font-mono text-text-main">0h 00m</div>
-                <div className="text-xs font-mono text-text-faint mt-1.5 font-medium">From study timer logs</div>
+                <div className="text-3xl font-bold font-mono text-text-main">
+                  {resources.length > 0
+                    ? Math.round((resources.filter((r) => r.is_studied).length / resources.length) * 100)
+                    : 0}
+                  %
+                </div>
+                <div className="text-xs font-mono text-text-faint mt-1.5 font-medium">Resources studied</div>
               </div>
+            </div>
+          );
+        }
+
+        // Widget: Study Streak & Cadence
+        if (w.type === 'study_streak') {
+          return (
+            <div key={w.id} className="hud-panel p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center space-x-3.5">
+                <div className="w-12 h-12 rounded-xl bg-accent/15 border border-accent/40 flex items-center justify-center text-accent">
+                  <Flame className="w-6 h-6 animate-pulse" />
+                </div>
+                <div>
+                  <div className="font-mono text-sm font-bold text-text-main">Daily Focus Cadence: 3 Day Streak</div>
+                  <div className="text-xs text-text-muted font-sans mt-0.5">
+                    Consistency builds mastery. 45 minutes focused study logged yesterday.
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2 font-mono text-xs">
+                {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => (
+                  <div
+                    key={i}
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold ${
+                      i < 3
+                        ? 'bg-accent text-canvas shadow-sm'
+                        : 'bg-canvas border border-border text-text-faint'
+                    }`}
+                  >
+                    {day}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        }
+
+        // Widget: Recently Opened PDFs
+        if (w.type === 'recently_opened') {
+          return (
+            <div key={w.id} className="hud-panel p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <div className="font-mono text-sm font-bold tracking-wider text-text-main flex items-center space-x-2">
+                  <FileText className="w-4 h-4 text-secondary" />
+                  <span>RECENT COURSE MATERIALS</span>
+                </div>
+                <button
+                  onClick={() => onNavigate('pdf_viewer')}
+                  className="text-xs font-mono text-primary hover:underline font-semibold"
+                >
+                  Open PDF Workstation →
+                </button>
+              </div>
+
+              {resources.length === 0 ? (
+                <div className="text-center py-6 font-mono text-xs text-text-muted">
+                  No PDF resources imported yet. Ingest your textbooks and course guides in the Academic Tree.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {resources.slice(0, 6).map((res) => (
+                    <div
+                      key={res.id}
+                      onClick={() => onNavigate('pdf_viewer')}
+                      className="p-3.5 rounded-xl bg-canvas border border-border hover:border-primary/50 cursor-pointer transition shadow-sm space-y-1.5"
+                    >
+                      <div className="font-mono text-xs font-bold text-text-main truncate">{res.title}</div>
+                      <div className="text-[11px] font-mono text-text-faint flex items-center justify-between">
+                        <span>{res.page_count} pages</span>
+                        <span>{res.is_studied ? '✓ Studied' : 'Page ' + res.last_page}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         }

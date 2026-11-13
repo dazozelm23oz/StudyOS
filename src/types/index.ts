@@ -76,6 +76,12 @@ export interface Resource {
   created_at: string;
 }
 
+export interface TocItem {
+  title: string;
+  page: number;
+  children?: TocItem[];
+}
+
 export interface Unit {
   id: string;
   resource_id: string;
@@ -89,7 +95,7 @@ export interface Highlight {
   id: string;
   resource_id: string;
   page_number: number;
-  rects_json: string;
+  rects_json: string; // JSON array of normalized [x, y, w, h] boxes
   text_snippet: string;
   color: string;
   note?: string;
@@ -150,8 +156,11 @@ export interface ThemeColors {
 export interface ThemeLayout {
   density: 'compact' | 'comfortable' | 'spacious';
   borderRadius: 'sharp' | 'rounded' | 'pill';
-  cardOpacity: number; // 0.8 to 1.0
+  cardOpacity: number; // 0.85 to 1.0
   cardBlur: number; // 0 to 24px
+  uiScale: number; // 0.85 to 1.25 (default 1.0)
+  fontFamily: 'Inter' | 'JetBrains Mono' | 'Space Grotesk' | 'System Sans';
+  shadowStyle: 'soft' | 'medium' | 'glow' | 'none';
 }
 
 export interface Theme {
@@ -197,7 +206,15 @@ export type DockPosition = 'left' | 'right' | 'bottom';
 export interface DashboardWidget {
   id: string;
   title: string;
-  type: 'welcome' | 'kpis' | 'enrolled_subjects' | 'quick_tools';
+  type:
+    | 'welcome'
+    | 'kpis'
+    | 'enrolled_subjects'
+    | 'quick_tools'
+    | 'recently_opened'
+    | 'timer_stats'
+    | 'date_calendar'
+    | 'study_streak';
   visible: boolean;
   order: number;
 }

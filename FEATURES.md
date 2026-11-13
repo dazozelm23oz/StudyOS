@@ -30,39 +30,39 @@ Status Key:
 ---
 
 ## 2. Academic Hierarchy & Profile
-- `[IN PROGRESS]` Academic hierarchy CRUD (Year → Semester → Subject → Resource) (`Phase 2`)
-- `[IN PROGRESS]` Student profile screen (name, major, university, dates, avatar) (`Phase 2`)
-- `[PLANNED]` Drag-and-drop reordering at every level (`@dnd-kit`) (`Phase 2`)
-- `[PLANNED]` Custom fields (arbitrary key/value pairs) on profile and hierarchy nodes (`Phase 2`)
-- `[PLANNED]` Per-subject metadata (code, credits, instructor, notes, custom colors) (`Phase 2`)
+- `[DONE]` Academic hierarchy CRUD (Year → Semester → Subject → Resource) (`Phase 2`)
+- `[DONE]` Student profile screen (name, major, university, dates, avatar) (`Phase 2`)
+- `[DONE]` Drag-and-drop reordering at every level (`@dnd-kit`) (`Phase 2`)
+- `[DONE]` Custom fields (arbitrary key/value pairs) on profile and hierarchy nodes (`Phase 2`)
+- `[DONE]` Per-subject metadata (code, credits, instructor, notes, custom colors) (`Phase 2`)
 
 ---
 
 ## 3. PDF Ingestion & Management
-- `[PLANNED]` Offline PDF importer with copy to managed library (`./data/library/`) (`Phase 3`)
-- `[PLANNED]` SHA-256 deduplication and duplicate file warning (`Phase 3`)
-- `[PLANNED]` Pure Rust metadata extraction (page count, title, author) via `lopdf` (`Phase 3`)
-- `[PLANNED]` Pure Rust Table of Contents (TOC) / bookmarks outline parser (`Phase 3`)
+- `[DONE]` Offline PDF importer with copy to managed library (`./data/library/`) (`Phase 3`)
+- `[DONE]` SHA-256 deduplication and duplicate file warning (`Phase 3`)
+- `[DONE]` Pure Rust metadata extraction (page count, title, author) via `lopdf` (`Phase 3`)
+- `[DONE]` Pure Rust Table of Contents (TOC) / bookmarks outline parser (`Phase 3`)
 
 ---
 
 ## 4. In-App PDF Viewer
-- `[PLANNED]` Smooth local PDF.js canvas rendering with high-DPI support (`Phase 4`)
-- `[PLANNED]` Virtualized page scrolling and instant page jumping (`Phase 4`)
-- `[PLANNED]` Non-destructive highlight annotations stored in SQLite (`Phase 4`)
-- `[PLANNED]` Highlight notes, color picker, and persistent SVG overlay layer (`Phase 4`)
-- `[PLANNED]` Local in-document full-text search with counter (`Phase 4`)
-- `[PLANNED]` Session memory (remembers page, zoom, scroll position, and active panes) (`Phase 4`)
-- `[PLANNED]` Side-by-side multi-pane split layout (2 to 4 independent panes) (`Phase 4`)
+- `[DONE]` Smooth local PDF.js canvas rendering with high-DPI support (`Phase 4`)
+- `[DONE]` Virtualized page scrolling and instant page jumping (`Phase 4`)
+- `[DONE]` Non-destructive highlight annotations stored in SQLite (`Phase 4`)
+- `[DONE]` Highlight notes, color picker, and persistent SVG overlay layer (`Phase 4`)
+- `[DONE]` Local in-document full-text search with counter (`Phase 4`)
+- `[DONE]` Session memory (remembers page, zoom, scroll position, and active panes) (`Phase 4`)
+- `[DONE]` Side-by-side multi-pane split layout (1 to 4 independent panes) (`Phase 4`)
 
 ---
 
 ## 5. PDF Unit Extraction
-- `[PLANNED]` Unit definition interface (auto-import from TOC or syntax parser) (`Phase 5`)
-- `[PLANNED]` Page range syntax parser supporting expressions like `1-5,7,10-20` (`Phase 5`)
-- `[PLANNED]` Pure Rust offline page-slicing and merging via `lopdf` (`Phase 5`)
-- `[PLANNED]` Output modes: Single merged PDF or one PDF per unit (`Phase 5`)
-- `[PLANNED]` Automatic ingestion into Subject Resources with progress indicator (`Phase 5`)
+- `[DONE]` Unit definition interface (auto-import from TOC or syntax parser) (`Phase 5`)
+- `[DONE]` Page range syntax parser supporting expressions like `1-5,7,10-20` (`Phase 5`)
+- `[DONE]` Pure Rust offline page-slicing and merging via `lopdf` (`Phase 5`)
+- `[DONE]` Output modes: Single merged PDF or one PDF per unit (`Phase 5`)
+- `[DONE]` Automatic ingestion into Subject Resources with progress indicator (`Phase 5`)
 
 ---
 

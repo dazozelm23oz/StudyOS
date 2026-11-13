@@ -486,6 +486,147 @@ class DatabaseService {
     else this.memoryStore.resources.push(res);
   }
 
+  async deleteResource(id: string): Promise<void> {
+    if (this.isTauri && this.db) {
+      await this.db.execute('DELETE FROM resources WHERE id = $1', [id]);
+      return;
+    }
+    this.memoryStore.resources = this.memoryStore.resources.filter((r) => r.id !== id);
+  }
+
+  async updateResourceStudyStatus(id: string, isStudied: boolean): Promise<void> {
+    if (this.isTauri && this.db) {
+      await this.db.execute('UPDATE resources SET is_studied = $1 WHERE id = $2', [isStudied ? 1 : 0, id]);
+      return;
+    }
+    const res = this.memoryStore.resources.find((r) => r.id === id);
+    if (res) res.is_studied = isStudied;
+  }
+
+  async updateResourceSession(id: string, page: number, zoom: number, scrollY: number): Promise<void> {
+    if (this.isTauri && this.db) {
+      await this.db.execute(
+        'UPDATE resources SET last_page = $1, last_zoom = $2, last_scroll_y = $3 WHERE id = $4',
+        [page, zoom, scrollY, id]
+      );
+      return;
+    }
+    const res = this.memoryStore.resources.find((r) => r.id === id);
+    if (res) {
+      res.last_page = page;
+      res.last_zoom = zoom;
+      res.last_scroll_y = scrollY;
+    }
+  }
+
+  // --- Batch Reordering (Fractional / Sort Order Persistence) ---
+  async reorderYears(ordered: Year[]): Promise<void> {
+    for (let i = 0; i < ordered.length; i++) {
+      ordered[i].sort_order = i + 1;
+      await this.saveYear(ordered[i]);
+    }
+  }
+
+  async reorderSemesters(ordered: Semester[]): Promise<void> {
+    for (let i = 0; i < ordered.length; i++) {
+      ordered[i].sort_order = i + 1;
+      await this.saveSemester(ordered[i]);
+    }
+  }
+
+  async reorderSubjects(ordered: Subject[]): Promise<void> {
+    for (let i = 0; i < ordered.length; i++) {
+      ordered[i].sort_order = i + 1;
+      await this.saveSubject(ordered[i]);
+    }
+  }
+
+  async reorderResources(ordered: Resource[]): Promise<void> {
+    for (let i = 0; i < ordered.length; i++) {
+      ordered[i].sort_order = i + 1;
+      await this.saveResource(ordered[i]);
+    }
+  }
+
+  // --- Units ---
+  async getUnits(resourceId?: string): Promise<Unit[]> {
+    if (this.isTauri && this.db) {
+      const sql = resourceId
+        ? 'SELECT * FROM units WHERE resource_id = $1 ORDER BY sort_order ASC'
+        : 'SELECT * FROM units ORDER BY sort_order ASC';
+      const rows: any[] = await this.db.select(sql, resourceId ? [resourceId] : []);
+      return rows.map((r) => ({ ...r, is_studied: Boolean(r.is_studied) }));
+    }
+    return this.memoryStore.units
+      .filter((u) => !resourceId || u.resource_id === resourceId)
+      .sort((a, b) => a.sort_order - b.sort_order);
+  }
+
+  async saveUnit(unit: Unit): Promise<void> {
+    if (this.isTauri && this.db) {
+      await this.db.execute(
+        `INSERT OR REPLACE INTO units (id, resource_id, title, page_ranges, is_studied, sort_order)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [unit.id, unit.resource_id, unit.title, unit.page_ranges, unit.is_studied ? 1 : 0, unit.sort_order]
+      );
+      return;
+    }
+    const idx = this.memoryStore.units.findIndex((u) => u.id === unit.id);
+    if (idx >= 0) this.memoryStore.units[idx] = unit;
+    else this.memoryStore.units.push(unit);
+  }
+
+  async deleteUnit(id: string): Promise<void> {
+    if (this.isTauri && this.db) {
+      await this.db.execute('DELETE FROM units WHERE id = $1', [id]);
+      return;
+    }
+    this.memoryStore.units = this.memoryStore.units.filter((u) => u.id !== id);
+  }
+
+  async updateUnitStudyStatus(id: string, isStudied: boolean): Promise<void> {
+    if (this.isTauri && this.db) {
+      await this.db.execute('UPDATE units SET is_studied = $1 WHERE id = $2', [isStudied ? 1 : 0, id]);
+      return;
+    }
+    const unit = this.memoryStore.units.find((u) => u.id === id);
+    if (unit) unit.is_studied = isStudied;
+  }
+
+  // --- Highlights ---
+  async getHighlights(resourceId: string): Promise<Highlight[]> {
+    if (this.isTauri && this.db) {
+      const rows: any[] = await this.db.select(
+        'SELECT * FROM highlights WHERE resource_id = $1 ORDER BY page_number ASC',
+        [resourceId]
+      );
+      return rows;
+    }
+    return this.memoryStore.highlights.filter((h) => h.resource_id === resourceId);
+  }
+
+  async saveHighlight(h: Highlight): Promise<void> {
+    if (this.isTauri && this.db) {
+      await this.db.execute(
+        `INSERT OR REPLACE INTO highlights (id, resource_id, page_number, rects_json, text_snippet, color, note, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [h.id, h.resource_id, h.page_number, h.rects_json, h.text_snippet, h.color, h.note || null, h.created_at]
+      );
+      return;
+    }
+    const idx = this.memoryStore.highlights.findIndex((item) => item.id === h.id);
+    if (idx >= 0) this.memoryStore.highlights[idx] = h;
+    else this.memoryStore.highlights.push(h);
+  }
+
+  async deleteHighlight(id: string): Promise<void> {
+    if (this.isTauri && this.db) {
+      await this.db.execute('DELETE FROM highlights WHERE id = $1', [id]);
+      return;
+    }
+    this.memoryStore.highlights = this.memoryStore.highlights.filter((item) => item.id !== id);
+  }
+
   // --- Themes ---
   async getThemes(): Promise<Theme[]> {
     if (this.isTauri && this.db) {

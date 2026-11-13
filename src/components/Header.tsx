@@ -1,21 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Moon, Sun, ShieldCheck, HardDrive, CheckCircle2, Layout } from 'lucide-react';
-import { Theme, DockPosition } from '../types';
+import { Camera, Moon, Sun, ShieldCheck, HardDrive, CheckCircle2 } from 'lucide-react';
+import { Theme } from '../types';
 import { BUILT_IN_THEMES, applyTheme } from '../theme/themes';
 
 interface HeaderProps {
   currentTheme: Theme;
   onThemeChange: (theme: Theme) => void;
-  dockPosition: DockPosition;
-  onDockPositionChange: (pos: DockPosition) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({
-  currentTheme,
-  onThemeChange,
-  dockPosition,
-  onDockPositionChange,
-}) => {
+export const Header: React.FC<HeaderProps> = ({ currentTheme, onThemeChange }) => {
   const [time, setTime] = useState<string>('');
   const [date, setDate] = useState<string>('');
   const [isBackingUp, setIsBackingUp] = useState<boolean>(false);
@@ -56,6 +49,27 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
+  const handleToggleDarkLight = () => {
+    const nextDark = !currentTheme.is_dark;
+    let updatedTheme = { ...currentTheme, is_dark: nextDark };
+
+    if (!nextDark) {
+      // Switched to Light mode: invert canvas/surface to light colors if currently dark
+      if (currentTheme.id !== 'solarized-light') {
+        const solarized = BUILT_IN_THEMES.find((t) => t.id === 'solarized-light') || BUILT_IN_THEMES[1];
+        updatedTheme = { ...solarized };
+      }
+    } else {
+      // Switched to Dark mode
+      if (currentTheme.id === 'solarized-light') {
+        updatedTheme = { ...BUILT_IN_THEMES[0] };
+      }
+    }
+
+    onThemeChange(updatedTheme);
+    applyTheme(updatedTheme);
+  };
+
   return (
     <header className="h-14 border-b border-border bg-surface px-4 flex items-center justify-between select-none z-30 shadow-sm">
       {/* Brand & Telemetry */}
@@ -92,31 +106,13 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Right Controls & Quick Actions */}
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center space-x-2.5">
         {backupStatus && (
           <div className="text-[11px] font-mono px-3 py-1 rounded-lg bg-canvas border border-primary/40 text-primary flex items-center space-x-1.5 animate-fadeIn">
             <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
             <span className="font-semibold">{backupStatus}</span>
           </div>
         )}
-
-        {/* Dock Position Quick Switcher */}
-        <div className="hidden sm:flex items-center bg-canvas p-0.5 rounded-lg border border-border">
-          {(['left', 'bottom', 'right'] as const).map((pos) => (
-            <button
-              key={pos}
-              onClick={() => onDockPositionChange(pos)}
-              className={`px-2 py-1 rounded-md text-[11px] font-mono uppercase font-semibold transition ${
-                dockPosition === pos
-                  ? 'bg-surface text-primary shadow-sm border border-border'
-                  : 'text-text-faint hover:text-text-main'
-              }`}
-              title={`Move navigation dock to ${pos}`}
-            >
-              {pos}
-            </button>
-          ))}
-        </div>
 
         {/* 1-Click Snapshot */}
         <button
@@ -129,7 +125,7 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="hidden sm:inline">SNAPSHOT</span>
         </button>
 
-        {/* Theme Picker Dropdown */}
+        {/* Theme Picker Dropdown (dynamically matches applied theme colors) */}
         <select
           value={currentTheme.id}
           onChange={(e) => {
@@ -139,10 +135,10 @@ export const Header: React.FC<HeaderProps> = ({
               applyTheme(found);
             }
           }}
-          className="bg-canvas border border-border text-xs font-mono text-text-main rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-primary font-semibold"
+          className="bg-canvas border border-border text-xs font-mono text-text-main rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-primary font-semibold cursor-pointer"
         >
           {BUILT_IN_THEMES.map((theme) => (
-            <option key={theme.id} value={theme.id}>
+            <option key={theme.id} value={theme.id} className="bg-surface text-text-main">
               {theme.name}
             </option>
           ))}
@@ -150,13 +146,9 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Dark/Light Quick Toggle */}
         <button
-          onClick={() => {
-            const updated = { ...currentTheme, is_dark: !currentTheme.is_dark };
-            onThemeChange(updated);
-            applyTheme(updated);
-          }}
-          className="p-1.5 rounded-lg bg-canvas border border-border hover:border-primary text-text-muted hover:text-text-main transition"
-          title="Toggle Dark/Light"
+          onClick={handleToggleDarkLight}
+          className="p-2 rounded-lg bg-canvas border border-border hover:border-primary text-text-muted hover:text-text-main transition shadow-sm"
+          title={currentTheme.is_dark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
         >
           {currentTheme.is_dark ? <Moon className="w-4 h-4 text-primary" /> : <Sun className="w-4 h-4 text-accent" />}
         </button>
