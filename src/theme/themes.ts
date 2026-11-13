@@ -266,19 +266,12 @@ export function applyTheme(theme: Theme): void {
   root.style.setProperty('--ui-scale', scale.toString());
   root.style.fontSize = `${16 * scale}px`;
 
-  // Density Scaling
-  const paddingMap = {
-    compact: '0.625rem',
-    comfortable: '1rem',
-    spacious: '1.5rem',
-  };
-  const gapMap = {
-    compact: '0.5rem',
-    comfortable: '1rem',
-    spacious: '1.5rem',
-  };
-  root.style.setProperty('--ui-padding', paddingMap[layout.density] || '1rem');
-  root.style.setProperty('--ui-gap', gapMap[layout.density] || '1rem');
+  // Density & Scale applied to Padding, Margin, and Gap
+  const basePadding = layout.density === 'compact' ? 10 : layout.density === 'spacious' ? 24 : 16;
+  const baseGap = layout.density === 'compact' ? 8 : layout.density === 'spacious' ? 20 : 12;
+  root.style.setProperty('--ui-padding', `${Math.round(basePadding * scale)}px`);
+  root.style.setProperty('--ui-margin', `${Math.round(baseGap * scale)}px`);
+  root.style.setProperty('--ui-gap', `${Math.round(baseGap * scale)}px`);
 
   // Opacity & Blur
   root.style.setProperty('--card-opacity', (layout.cardOpacity || 0.96).toString());

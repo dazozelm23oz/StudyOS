@@ -303,7 +303,7 @@ export const SoundscapeMixer: React.FC = () => {
         <label className="hud-panel p-5 border-dashed border-2 border-border hover:border-primary/50 cursor-pointer flex flex-col items-center justify-center text-center space-y-2 group transition">
           <input
             type="file"
-            accept="audio/mp3,audio/wav,audio/ogg,audio/flac"
+            accept="audio/mp3,audio/wav,audio/ogg,audio/flac,audio/webm,.webm,.mp3,.wav,.ogg,.flac"
             onChange={handleImportLocalAudio}
             className="hidden"
           />
@@ -312,7 +312,7 @@ export const SoundscapeMixer: React.FC = () => {
           </div>
           <div className="font-mono text-xs font-bold text-text-main">IMPORT LOCAL AUDIO</div>
           <div className="text-[10px] font-mono text-text-muted max-w-[180px]">
-            Add .mp3 or .wav study tracks with seamless looping
+            Add .mp3, .wav, or .webm study tracks with seamless looping
           </div>
         </label>
       </div>

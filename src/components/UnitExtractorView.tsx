@@ -25,6 +25,8 @@ export const UnitExtractorView: React.FC = () => {
   const [tocChapters, setTocChapters] = useState<{ title: string; page: number; selected: boolean }[]>([]);
   const [validatedCount, setValidatedCount] = useState<number | null>(null);
   const [isExtracting, setIsExtracting] = useState<boolean>(false);
+  const [extractProgress, setExtractProgress] = useState<number>(0);
+  const [extractStep, setExtractStep] = useState<string>('');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [existingUnits, setExistingUnits] = useState<Unit[]>([]);
 
@@ -130,7 +132,22 @@ export const UnitExtractorView: React.FC = () => {
     }
 
     setIsExtracting(true);
+    setExtractProgress(15);
+    setExtractStep('Analyzing PDF object tree & dereferencing pages...');
     setStatusMessage(null);
+
+    const progressTimer = setInterval(() => {
+      setExtractProgress((prev) => {
+        if (prev >= 85) return prev;
+        const next = prev + 15;
+        if (next > 40 && next <= 65) {
+          setExtractStep('Slicing specified page ranges with lopdf core...');
+        } else if (next > 65) {
+          setExtractStep('Pruning unreferenced objects & re-indexing cross-references...');
+        }
+        return next;
+      });
+    }, 200);
 
     try {
       if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
@@ -141,6 +158,10 @@ export const UnitExtractorView: React.FC = () => {
           pageRanges: rangeString.trim(),
           unitTitle: unitTitle.trim(),
         });
+
+        clearInterval(progressTimer);
+        setExtractProgress(95);
+        setExtractStep('Writing output and calculating SHA-256 hash...');
 
         // 1. Create newly extracted child resource in DB
         const newResource: Resource = {
@@ -173,6 +194,7 @@ export const UnitExtractorView: React.FC = () => {
         };
         await dbService.saveUnit(newUnit);
 
+        setExtractProgress(100);
         setStatusMessage(
           `Success: Extracted "${unitTitle}" (${extractResult.page_count} pages) and linked to subject resources!`
         );
@@ -183,12 +205,16 @@ export const UnitExtractorView: React.FC = () => {
         const updatedRes = await dbService.getResources();
         setResources(updatedRes);
       } else {
+        clearInterval(progressTimer);
+        setExtractProgress(100);
         setStatusMessage('Simulated unit extraction complete (browser mode).');
       }
     } catch (err: any) {
+      clearInterval(progressTimer);
       console.error(err);
       setStatusMessage('Extraction error: ' + (err?.toString() || 'Failed'));
     } finally {
+      clearInterval(progressTimer);
       setIsExtracting(false);
     }
   };
@@ -337,6 +363,25 @@ export const UnitExtractorView: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* Extraction Progress Bar */}
+            {isExtracting && (
+              <div className="p-3.5 rounded-xl bg-canvas border border-primary/40 space-y-2 animate-fadeIn">
+                <div className="flex items-center justify-between font-mono text-[11px]">
+                  <span className="text-primary font-bold flex items-center space-x-1.5 truncate">
+                    <Activity className="w-3.5 h-3.5 animate-spin flex-shrink-0" />
+                    <span className="truncate">{extractStep}</span>
+                  </span>
+                  <span className="font-bold text-text-main flex-shrink-0">{extractProgress}%</span>
+                </div>
+                <div className="w-full h-2 bg-surface rounded-full overflow-hidden border border-border">
+                  <div
+                    style={{ width: `${extractProgress}%` }}
+                    className="h-full bg-gradient-to-r from-primary via-secondary to-accent transition-all duration-300"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Submit Action */}
             <div className="pt-3">

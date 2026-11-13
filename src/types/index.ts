@@ -225,6 +225,7 @@ export interface DashboardWidget {
     | 'study_streak';
   visible: boolean;
   order: number;
+  width?: 'full' | 'half' | 'third';
 }
 
 export interface AppSettings {

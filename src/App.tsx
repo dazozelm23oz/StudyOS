@@ -52,22 +52,22 @@ export const App: React.FC = () => {
         }
       }
 
-      // 2. Apply Academic Studio theme as default
-      applyTheme(BUILT_IN_THEMES[0]);
-
-      // 3. Initialize local SQLite database
+      // 2. Initialize local SQLite database
       await dbService.init();
 
-      // 4. Load saved user theme if present
+      // 3. Load saved active theme from localStorage or SQLite
+      const savedThemeId = localStorage.getItem('studyos_active_theme_id') || 'academic-studio';
       try {
         const savedThemes = await dbService.getThemes();
-        if (savedThemes && savedThemes.length > 0) {
-          const found = savedThemes.find((t) => t.id === 'academic-studio') || BUILT_IN_THEMES[0];
-          setCurrentTheme(found);
-          applyTheme(found);
-        }
+        const allThemes = [...BUILT_IN_THEMES, ...(savedThemes || [])];
+        const found = allThemes.find((t) => t.id === savedThemeId) || BUILT_IN_THEMES[0];
+        setCurrentTheme(found);
+        applyTheme(found);
       } catch (e) {
         console.warn('Using fallback preset:', e);
+        const fallback = BUILT_IN_THEMES.find((t) => t.id === savedThemeId) || BUILT_IN_THEMES[0];
+        setCurrentTheme(fallback);
+        applyTheme(fallback);
       }
 
       setIsInitialized(true);
@@ -99,11 +99,16 @@ export const App: React.FC = () => {
     localStorage.setItem('studyos_visible_tabs', JSON.stringify(enforced));
   };
 
+  const handleThemeChange = (th: Theme) => {
+    setCurrentTheme(th);
+    applyTheme(th);
+    localStorage.setItem('studyos_active_theme_id', th.id);
+  };
+
   const handleToggleThemeMode = () => {
     const nextDark = !currentTheme.is_dark;
     const updated = { ...currentTheme, is_dark: nextDark };
-    setCurrentTheme(updated);
-    applyTheme(updated);
+    handleThemeChange(updated);
   };
 
   if (!isInitialized) {
@@ -123,10 +128,7 @@ export const App: React.FC = () => {
       {/* Topbar Header */}
       <Header
         currentTheme={currentTheme}
-        onThemeChange={(th) => {
-          setCurrentTheme(th);
-          applyTheme(th);
-        }}
+        onThemeChange={handleThemeChange}
         onOpenSearch={() => setIsSearchOpen(true)}
       />
 
@@ -168,10 +170,7 @@ export const App: React.FC = () => {
           {activeTab === 'themes' && (
             <ThemeStudioView
               currentTheme={currentTheme}
-              onThemeSelect={(th) => {
-                setCurrentTheme(th);
-                applyTheme(th);
-              }}
+              onThemeSelect={handleThemeChange}
             />
           )}
 

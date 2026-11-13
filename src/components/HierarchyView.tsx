@@ -14,6 +14,9 @@ import {
   Upload,
   Activity,
   AlertCircle,
+  Image as ImageIcon,
+  Tag,
+  X,
 } from 'lucide-react';
 import {
   DndContext,
@@ -88,8 +91,10 @@ export const HierarchyView: React.FC = () => {
   const [activeSemForSubject, setActiveSemForSubject] = useState<string | null>(null);
   const [newSubjectName, setNewSubjectName] = useState('');
   const [newSubjectCode, setNewSubjectCode] = useState('');
-  const [newSubjectCredits, setNewSubjectCredits] = useState(3);
+  const [newSubjectCredits, setNewSubjectCredits] = useState<number>(30);
   const [newSubjectColor, setNewSubjectColor] = useState('#38bdf8');
+  const [newSubjectBanner, setNewSubjectBanner] = useState<string>('');
+  const [newSubjectCustomFields, setNewSubjectCustomFields] = useState<{ key: string; value: string }[]>([]);
 
   // PDF Ingestion state
   const [importingSubjectId, setImportingSubjectId] = useState<string | null>(null);
@@ -139,6 +144,11 @@ export const HierarchyView: React.FC = () => {
     e.preventDefault();
     if (!newYearName.trim()) return;
 
+    if (years.some((y) => y.name.toLowerCase() === newYearName.trim().toLowerCase())) {
+      alert(`An Academic Year named "${newYearName.trim()}" already exists.`);
+      return;
+    }
+
     const newYear: Year = {
       id: 'year-' + Date.now(),
       name: newYearName.trim(),
@@ -170,20 +180,56 @@ export const HierarchyView: React.FC = () => {
   const handleCreateSubject = async (semesterId: string) => {
     if (!newSubjectName.trim()) return;
 
+    const customFieldsObj: Record<string, string> = {};
+    for (const f of newSubjectCustomFields) {
+      if (f.key.trim()) {
+        customFieldsObj[f.key.trim()] = f.value.trim();
+      }
+    }
+
     const newSub: Subject = {
       id: 'sub-' + Date.now(),
       semester_id: semesterId,
       name: newSubjectName.trim(),
       code: newSubjectCode.trim() || 'SUB-101',
-      credits: Number(newSubjectCredits) || 3,
+      credits: Number(newSubjectCredits) || 30,
       accent_color: newSubjectColor,
+      banner_url: newSubjectBanner || undefined,
+      custom_fields: Object.keys(customFieldsObj).length > 0 ? customFieldsObj : undefined,
       sort_order: subjects.filter((s) => s.semester_id === semesterId).length + 1,
     };
     await dbService.saveSubject(newSub);
     setNewSubjectName('');
     setNewSubjectCode('');
+    setNewSubjectCredits(30);
+    setNewSubjectBanner('');
+    setNewSubjectCustomFields([]);
     setActiveSemForSubject(null);
     await loadHierarchy();
+  };
+
+  const handleBannerUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setNewSubjectBanner(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const addCustomField = () => {
+    setNewSubjectCustomFields([...newSubjectCustomFields, { key: '', value: '' }]);
+  };
+
+  const updateCustomField = (index: number, key: string, value: string) => {
+    const updated = [...newSubjectCustomFields];
+    updated[index] = { key, value };
+    setNewSubjectCustomFields(updated);
+  };
+
+  const removeCustomField = (index: number) => {
+    setNewSubjectCustomFields(newSubjectCustomFields.filter((_, i) => i !== index));
   };
 
   // --- PDF Import Ingestion Logic (Phase 3) ---
@@ -491,40 +537,140 @@ export const HierarchyView: React.FC = () => {
 
                                   {/* Inline Add Subject Form */}
                                   {activeSemForSubject === sem.id && (
-                                    <div className="p-3.5 rounded-xl bg-surface border border-accent/40 grid grid-cols-1 sm:grid-cols-4 gap-2.5">
-                                      <input
-                                        type="text"
-                                        value={newSubjectName}
-                                        onChange={(e) => setNewSubjectName(e.target.value)}
-                                        placeholder="Subject Name (e.g. Algorithms)"
-                                        className="bg-canvas border border-border rounded-lg px-3 py-1.5 text-xs font-mono text-text-main focus:outline-none"
-                                      />
-                                      <input
-                                        type="text"
-                                        value={newSubjectCode}
-                                        onChange={(e) => setNewSubjectCode(e.target.value)}
-                                        placeholder="Code (e.g. CS201)"
-                                        className="bg-canvas border border-border rounded-lg px-3 py-1.5 text-xs font-mono text-text-main focus:outline-none"
-                                      />
-                                      <input
-                                        type="number"
-                                        value={newSubjectCredits}
-                                        onChange={(e) => setNewSubjectCredits(Number(e.target.value))}
-                                        placeholder="Credits"
-                                        className="bg-canvas border border-border rounded-lg px-3 py-1.5 text-xs font-mono text-text-main focus:outline-none"
-                                      />
-                                      <div className="flex items-center space-x-2">
-                                        <input
-                                          type="color"
-                                          value={newSubjectColor}
-                                          onChange={(e) => setNewSubjectColor(e.target.value)}
-                                          className="w-8 h-8 rounded-lg border border-border bg-canvas cursor-pointer"
-                                        />
+                                    <div className="p-4 rounded-xl bg-surface border border-accent/40 space-y-3.5 animate-fadeIn">
+                                      <div className="font-mono text-xs font-bold text-accent uppercase flex items-center justify-between">
+                                        <span>Create New Subject</span>
                                         <button
-                                          onClick={() => handleCreateSubject(sem.id)}
-                                          className="flex-1 py-1.5 bg-accent text-canvas font-mono font-bold text-xs rounded-lg shadow-sm"
+                                          onClick={() => setActiveSemForSubject(null)}
+                                          className="text-text-faint hover:text-text-main"
                                         >
-                                          Save
+                                          <X className="w-4 h-4" />
+                                        </button>
+                                      </div>
+
+                                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                                        <input
+                                          type="text"
+                                          value={newSubjectName}
+                                          onChange={(e) => setNewSubjectName(e.target.value)}
+                                          placeholder="Subject Name (e.g. Distributed Systems)"
+                                          className="bg-canvas border border-border rounded-lg px-3 py-1.5 text-xs font-mono text-text-main focus:outline-none"
+                                        />
+                                        <input
+                                          type="text"
+                                          value={newSubjectCode}
+                                          onChange={(e) => setNewSubjectCode(e.target.value)}
+                                          placeholder="Subject Code (e.g. CS401)"
+                                          className="bg-canvas border border-border rounded-lg px-3 py-1.5 text-xs font-mono text-text-main focus:outline-none"
+                                        />
+                                        <select
+                                          value={newSubjectCredits}
+                                          onChange={(e) => setNewSubjectCredits(Number(e.target.value))}
+                                          className="bg-canvas border border-border rounded-lg px-3 py-1.5 text-xs font-mono text-text-main focus:outline-none"
+                                        >
+                                          <option value={30}>Full Course (30 Credits)</option>
+                                          <option value={15}>Half Course (15 Credits)</option>
+                                        </select>
+                                      </div>
+
+                                      {/* Banner Uploader & Color Accent */}
+                                      <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-border/50">
+                                        <label className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-canvas border border-border hover:border-primary text-xs font-mono text-text-main cursor-pointer shadow-sm">
+                                          <ImageIcon className="w-3.5 h-3.5 text-primary" />
+                                          <span>Upload Subject Banner</span>
+                                          <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleBannerUpload}
+                                            className="hidden"
+                                          />
+                                        </label>
+
+                                        {newSubjectBanner && (
+                                          <div className="flex items-center space-x-2">
+                                            <img
+                                              src={newSubjectBanner}
+                                              alt="Banner preview"
+                                              className="h-7 w-14 object-cover rounded border border-border"
+                                            />
+                                            <button
+                                              type="button"
+                                              onClick={() => setNewSubjectBanner('')}
+                                              className="text-text-faint hover:text-danger text-[10px] font-mono"
+                                            >
+                                              Remove
+                                            </button>
+                                          </div>
+                                        )}
+
+                                        <div className="flex items-center space-x-2 ml-auto">
+                                          <span className="text-xs font-mono text-text-muted">Accent:</span>
+                                          <input
+                                            type="color"
+                                            value={newSubjectColor}
+                                            onChange={(e) => setNewSubjectColor(e.target.value)}
+                                            className="w-7 h-7 rounded-lg border border-border bg-canvas cursor-pointer"
+                                          />
+                                        </div>
+                                      </div>
+
+                                      {/* Dynamic Key/Value Custom Fields */}
+                                      <div className="space-y-2 pt-2 border-t border-border/50">
+                                        <div className="flex items-center justify-between text-[11px] font-mono text-text-muted">
+                                          <span className="flex items-center space-x-1">
+                                            <Tag className="w-3 h-3 text-secondary" />
+                                            <span>Custom Metadata Fields</span>
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={addCustomField}
+                                            className="text-primary hover:underline font-bold"
+                                          >
+                                            + Add Field
+                                          </button>
+                                        </div>
+
+                                        {newSubjectCustomFields.map((field, fIdx) => (
+                                          <div key={fIdx} className="flex items-center space-x-2">
+                                            <input
+                                              type="text"
+                                              placeholder="Key (e.g. Professor)"
+                                              value={field.key}
+                                              onChange={(e) => updateCustomField(fIdx, e.target.value, field.value)}
+                                              className="w-1/3 bg-canvas border border-border rounded-lg px-2.5 py-1 text-xs font-mono text-text-main focus:outline-none"
+                                            />
+                                            <input
+                                              type="text"
+                                              placeholder="Value (e.g. Dr. Turing)"
+                                              value={field.value}
+                                              onChange={(e) => updateCustomField(fIdx, field.key, e.target.value)}
+                                              className="flex-1 bg-canvas border border-border rounded-lg px-2.5 py-1 text-xs font-mono text-text-main focus:outline-none"
+                                            />
+                                            <button
+                                              type="button"
+                                              onClick={() => removeCustomField(fIdx)}
+                                              className="p-1 text-text-faint hover:text-danger"
+                                            >
+                                              <X className="w-3.5 h-3.5" />
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+
+                                      <div className="flex justify-end space-x-2 pt-2 border-t border-border/50">
+                                        <button
+                                          type="button"
+                                          onClick={() => setActiveSemForSubject(null)}
+                                          className="px-3 py-1.5 rounded-lg bg-canvas border border-border text-xs font-mono text-text-muted hover:text-text-main"
+                                        >
+                                          Cancel
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleCreateSubject(sem.id)}
+                                          className="px-4 py-1.5 bg-accent text-canvas font-mono font-bold text-xs rounded-lg shadow-sm hover:brightness-110"
+                                        >
+                                          Save Subject
                                         </button>
                                       </div>
                                     </div>
@@ -541,8 +687,15 @@ export const HierarchyView: React.FC = () => {
                                         <div
                                           key={sub.id}
                                           style={{ borderLeftColor: sub.accent_color }}
-                                          className="p-3.5 rounded-xl bg-surface border border-border border-l-4 space-y-3 shadow-sm"
+                                          className="p-3.5 rounded-xl bg-surface border border-border border-l-4 space-y-3 shadow-sm overflow-hidden"
                                         >
+                                          {sub.banner_url && (
+                                            <div
+                                              style={{ backgroundImage: `url(${sub.banner_url})` }}
+                                              className="h-20 w-full rounded-lg bg-cover bg-center -mt-1 shadow-inner border border-border/40"
+                                            />
+                                          )}
+
                                           <div className="flex items-center justify-between">
                                             <div>
                                               <div className="font-mono text-xs font-bold text-text-main">
@@ -552,6 +705,18 @@ export const HierarchyView: React.FC = () => {
                                                 {sub.code} • {sub.credits} credits •{' '}
                                                 {subResources.length} resources
                                               </div>
+                                              {sub.custom_fields && Object.keys(sub.custom_fields).length > 0 && (
+                                                <div className="flex flex-wrap gap-1.5 pt-1.5">
+                                                  {Object.entries(sub.custom_fields).map(([k, v]) => (
+                                                    <span
+                                                      key={k}
+                                                      className="px-2 py-0.5 rounded bg-canvas border border-border text-[10px] font-mono text-text-muted"
+                                                    >
+                                                      <strong className="text-text-main">{k}:</strong> {v}
+                                                    </span>
+                                                  ))}
+                                                </div>
+                                              )}
                                             </div>
 
                                             <div className="flex items-center space-x-2">

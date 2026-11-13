@@ -28,6 +28,13 @@ class DatabaseService {
       // Check if running in Tauri environment
       if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
         this.isTauri = true;
+        try {
+          const { mkdir } = await import('@tauri-apps/plugin-fs');
+          await mkdir('data', { recursive: true });
+          await mkdir('data/library', { recursive: true });
+        } catch (fsErr) {
+          console.warn('Could not pre-create data directory with plugin-fs:', fsErr);
+        }
         this.db = await Database.load('sqlite:data/studyos.db');
         await this.runMigrations();
       } else {

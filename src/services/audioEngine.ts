@@ -34,7 +34,7 @@ class StudyAudioEngine {
 
   private listeners: ((playing: boolean, preset: AudioPreset) => void)[] = [];
 
-  private ensureContext() {
+  public ensureContext() {
     if (!this.ctx) {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       this.ctx = new AudioCtx();
@@ -43,7 +43,7 @@ class StudyAudioEngine {
       this.masterGain.connect(this.ctx.destination);
     }
     if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
+      this.ctx.resume().catch((e) => console.warn('Could not resume audio context:', e));
     }
   }
 
@@ -175,7 +175,15 @@ class StudyAudioEngine {
     this.notify();
   }
 
-  public togglePlay() {
+  public async togglePlay() {
+    this.ensureContext();
+    if (this.ctx && this.ctx.state === 'suspended') {
+      try {
+        await this.ctx.resume();
+      } catch (e) {
+        console.warn('AudioContext resume error:', e);
+      }
+    }
     if (this.isPlaying) this.stop();
     else this.start();
   }
@@ -226,6 +234,8 @@ class StudyAudioEngine {
     this.rainNode = this.ctx.createBufferSource();
     this.rainNode.buffer = buffer;
     this.rainNode.loop = true;
+    this.rainNode.loopStart = 0;
+    this.rainNode.loopEnd = buffer.duration;
 
     // Filter to sound like soft rainfall
     this.rainFilter = this.ctx.createBiquadFilter();
@@ -344,6 +354,47 @@ class StudyAudioEngine {
     } else if (this.activePreset.attached_timer_phase !== 'always') {
       if (this.isPlaying) this.stop();
     }
+  }
+
+  public playChime() {
+    this.ensureContext();
+    if (!this.ctx || !this.masterGain) return;
+    const now = this.ctx.currentTime;
+    // Pleasant aircraft seatbelt / cabin ding-dong chime
+    const playTone = (freq: number, start: number, dur: number) => {
+      if (!this.ctx || !this.masterGain) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, start);
+      gain.gain.setValueAtTime(0.001, start);
+      gain.gain.linearRampToValueAtTime(0.25, start + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(start);
+      osc.stop(start + dur);
+    };
+    playTone(587.33, now, 0.7);
+    playTone(440.0, now + 0.35, 1.2);
+  }
+
+  public playTakeoffSweep() {
+    this.ensureContext();
+    if (!this.ctx || !this.masterGain) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(90, now);
+    osc.frequency.exponentialRampToValueAtTime(320, now + 2.5);
+    gain.gain.setValueAtTime(0.01, now);
+    gain.gain.linearRampToValueAtTime(0.2, now + 0.8);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 3.0);
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start(now);
+    osc.stop(now + 3.0);
   }
 }
 

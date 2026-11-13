@@ -117,67 +117,108 @@ pub fn calculate_file_hash(path: &Path) -> Result<String, String> {
     Ok(format!("{:x}", hasher.finalize()))
 }
 
-/// Extracts outlines / bookmarks from a PDF document using lopdf
-pub fn extract_bookmarks(doc: &lopdf::Document) -> Vec<TocItem> {
-    let mut toc = Vec::new();
+fn decode_pdf_string(bytes: &[u8]) -> String {
+    if bytes.len() >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF {
+        // UTF-16BE encoding with BOM
+        let u16_chars: Vec<u16> = bytes[2..]
+            .chunks_exact(2)
+            .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
+            .collect();
+        String::from_utf16_lossy(&u16_chars)
+    } else {
+        String::from_utf8_lossy(bytes).trim().to_string()
+    }
+}
 
-    // Check catalog dictionary for Outlines reference
-    let catalog = match doc.catalog() {
-        Ok(c) => c,
-        Err(_) => return toc,
+fn resolve_dest_page(
+    doc: &lopdf::Document,
+    dest_obj: &lopdf::Object,
+    page_map: &std::collections::HashMap<(u32, u16), u32>,
+) -> Option<u32> {
+    let resolved = match dest_obj {
+        lopdf::Object::Reference(r) => doc.get_object(*r).ok()?,
+        other => other,
     };
 
-    let outlines_ref = match catalog.get(b"Outlines") {
-        Ok(lopdf::Object::Reference(r)) => *r,
-        _ => return toc,
-    };
-
-    let outlines_dict = match doc.get_object(outlines_ref) {
-        Ok(lopdf::Object::Dictionary(d)) => d,
-        _ => return toc,
-    };
-
-    let mut current_ref = match outlines_dict.get(b"First") {
-        Ok(lopdf::Object::Reference(r)) => Some(*r),
+    match resolved {
+        lopdf::Object::Array(arr) => {
+            if let Some(first) = arr.first() {
+                match first {
+                    lopdf::Object::Reference(p_ref) => page_map.get(p_ref).copied(),
+                    lopdf::Object::Integer(idx) => Some((*idx as u32) + 1),
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        }
+        lopdf::Object::Integer(idx) => Some((*idx as u32) + 1),
         _ => None,
-    };
+    }
+}
 
-    let mut visited = HashSet::new();
+fn traverse_outline_level(
+    doc: &lopdf::Document,
+    start_ref: (u32, u16),
+    page_map: &std::collections::HashMap<(u32, u16), u32>,
+    visited: &mut HashSet<(u32, u16)>,
+    depth: usize,
+) -> Vec<TocItem> {
+    if depth > 5 {
+        return Vec::new();
+    }
+
+    let mut items = Vec::new();
+    let mut current_ref = Some(start_ref);
 
     while let Some(item_ref) = current_ref {
         if visited.contains(&item_ref) {
-            break; // prevent circular outline loops
+            break;
         }
         visited.insert(item_ref);
 
         if let Ok(lopdf::Object::Dictionary(item_dict)) = doc.get_object(item_ref) {
             let title = match item_dict.get(b"Title") {
-                Ok(lopdf::Object::String(bytes, _)) => {
-                    String::from_utf8_lossy(bytes).to_string()
-                }
-                _ => "Untitled Chapter".to_string(),
+                Ok(lopdf::Object::String(bytes, _)) => decode_pdf_string(bytes),
+                _ => "Untitled Section".to_string(),
             };
 
-            // Estimate destination page number
+            // 1. Check direct /Dest
             let mut page = 1;
-            if let Ok(dest) = item_dict.get(b"Dest") {
-                if let lopdf::Object::Array(arr) = dest {
-                    if let Some(lopdf::Object::Reference(target_page_ref)) = arr.first() {
-                        let pages = doc.get_pages();
-                        for (p_num, &p_ref) in pages.iter() {
-                            if p_ref == *target_page_ref {
-                                page = *p_num;
-                                break;
+            if let Ok(dest_obj) = item_dict.get(b"Dest") {
+                if let Some(p) = resolve_dest_page(doc, dest_obj, page_map) {
+                    page = p;
+                }
+            } else if let Ok(action_obj) = item_dict.get(b"A") {
+                // 2. Check Action /A
+                let action_dict = match action_obj {
+                    lopdf::Object::Reference(r) => doc.get_object(*r).ok(),
+                    _ => Some(action_obj),
+                };
+                if let Some(lopdf::Object::Dictionary(ad)) = action_dict {
+                    if let Ok(action_type) = ad.get(b"S") {
+                        if action_type.as_name().map(|n| n == b"GoTo").unwrap_or(false) {
+                            if let Ok(dest_obj) = ad.get(b"D") {
+                                if let Some(p) = resolve_dest_page(doc, dest_obj, page_map) {
+                                    page = p;
+                                }
                             }
                         }
                     }
                 }
             }
 
-            toc.push(TocItem {
+            // 3. Recursively check for sub-children
+            let children = if let Ok(lopdf::Object::Reference(child_ref)) = item_dict.get(b"First") {
+                traverse_outline_level(doc, *child_ref, page_map, visited, depth + 1)
+            } else {
+                Vec::new()
+            };
+
+            items.push(TocItem {
                 title,
                 page,
-                children: Vec::new(),
+                children,
             });
 
             current_ref = match item_dict.get(b"Next") {
@@ -189,7 +230,36 @@ pub fn extract_bookmarks(doc: &lopdf::Document) -> Vec<TocItem> {
         }
     }
 
-    toc
+    items
+}
+
+/// Extracts outlines / bookmarks from a PDF document using lopdf
+pub fn extract_bookmarks(doc: &lopdf::Document) -> Vec<TocItem> {
+    let pages = doc.get_pages();
+    let page_map: std::collections::HashMap<(u32, u16), u32> = pages.into_iter().map(|(num, r)| (r, num)).collect();
+
+    // Check catalog dictionary for Outlines reference
+    let catalog = match doc.catalog() {
+        Ok(c) => c,
+        Err(_) => return Vec::new(),
+    };
+
+    let outlines_dict = match catalog.get(b"Outlines") {
+        Ok(lopdf::Object::Reference(r)) => match doc.get_object(*r) {
+            Ok(lopdf::Object::Dictionary(d)) => d,
+            _ => return Vec::new(),
+        },
+        Ok(lopdf::Object::Dictionary(d)) => d,
+        _ => return Vec::new(),
+    };
+
+    let first_ref = match outlines_dict.get(b"First") {
+        Ok(lopdf::Object::Reference(r)) => *r,
+        _ => return Vec::new(),
+    };
+
+    let mut visited = HashSet::new();
+    traverse_outline_level(doc, first_ref, &page_map, &mut visited, 0)
 }
 
 /// Ingests a PDF file into `./data/library/<subject_id>/<hash>.pdf`

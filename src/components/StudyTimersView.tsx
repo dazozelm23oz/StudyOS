@@ -24,6 +24,7 @@ import {
 import { Subject, Resource, Unit, ChecklistItem, TodoItem, SessionLog } from '../types';
 import { dbService } from '../services/db';
 import { audioEngine } from '../services/audioEngine';
+import { FlightTimer } from './timers/FlightTimer';
 
 type TimerTab = 'pomodoro' | 'session' | 'stopwatch' | 'flight' | 'checklist' | 'todos' | 'analytics';
 
@@ -868,125 +869,13 @@ export const StudyTimersView: React.FC = () => {
         {/* TAB 4: FLIGHT-STYLE HUD TIMER */}
         {/* ========================================================= */}
         {activeTab === 'flight' && (
-          <div className="max-w-3xl mx-auto space-y-6">
-            <div className="hud-panel p-8 relative overflow-hidden bg-gradient-to-b from-surface to-canvas border border-accent/40">
-              {/* Cockpit HUD Header */}
-              <div className="flex items-center justify-between border-b border-border pb-4 mb-6 font-mono text-xs">
-                <div className="flex items-center space-x-3">
-                  <div className="w-2.5 h-2.5 rounded-full bg-accent animate-ping" />
-                  <span className="font-bold tracking-wider text-accent">COCKPIT FLIGHT HUD</span>
-                  <span className="text-text-faint">•</span>
-                  <span className="text-text-main font-semibold">CALLSIGN: {callsign}</span>
-                </div>
-                <div className="text-text-muted">
-                  STAGE: <span className="font-bold text-primary">{flightPhaseLabel}</span>
-                </div>
-              </div>
-
-              {/* Instrument Gauges Matrix */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-                {/* Altitude Indicator */}
-                <div className="p-4 rounded-xl bg-canvas border border-border text-center">
-                  <div className="text-[11px] font-mono text-text-muted uppercase">FLIGHT ALTITUDE</div>
-                  <div className="text-3xl font-mono font-bold text-text-main mt-1">
-                    {flightAltitude.toLocaleString()} <span className="text-xs text-text-faint">FT</span>
-                  </div>
-                  <div className="text-[10px] font-mono text-accent mt-1">
-                    {flightAltitude >= 38000 ? 'MAX CRUISE CEILING' : 'LEVELING OFF'}
-                  </div>
-                </div>
-
-                {/* Main Countdown Display */}
-                <div className="p-4 rounded-xl bg-canvas border border-accent/40 text-center sm:col-span-1 shadow-sm">
-                  <div className="text-[11px] font-mono text-accent font-bold uppercase">TIME TO TOUCHDOWN</div>
-                  <div className="text-4xl font-mono font-bold text-text-main mt-1 tabular-nums">
-                    {formatTime(flightSecondsLeft)}
-                  </div>
-                  <div className="text-[10px] font-mono text-text-faint mt-1">
-                    {Math.round(flightProgressPct)}% MISSION COMPLETE
-                  </div>
-                </div>
-
-                {/* Airspeed / Mach Indicator */}
-                <div className="p-4 rounded-xl bg-canvas border border-border text-center">
-                  <div className="text-[11px] font-mono text-text-muted uppercase">AIRSPEED VELOCITY</div>
-                  <div className="text-3xl font-mono font-bold text-text-main mt-1">
-                    M {flightMach.toFixed(2)}
-                  </div>
-                  <div className="text-[10px] font-mono text-secondary mt-1">SUB-SONIC CRUISE</div>
-                </div>
-              </div>
-
-              {/* Flight Path Altitude Profile Visualizer */}
-              <div className="space-y-2 mb-8">
-                <div className="flex items-center justify-between text-xs font-mono text-text-muted">
-                  <span>DEPARTURE (0%)</span>
-                  <span>CRUISE FL380 (50%)</span>
-                  <span>TOUCHDOWN (100%)</span>
-                </div>
-                <div className="w-full h-3 bg-canvas rounded-full overflow-hidden border border-border relative">
-                  <div
-                    style={{ width: `${flightProgressPct}%` }}
-                    className="h-full bg-gradient-to-r from-primary via-accent to-success transition-all duration-300"
-                  />
-                </div>
-              </div>
-
-              {/* Flight Controls */}
-              <div className="flex items-center justify-center space-x-4">
-                <button
-                  onClick={toggleFlight}
-                  className={`px-8 py-3.5 rounded-xl font-mono font-bold text-xs uppercase tracking-wider flex items-center space-x-2 transition shadow-md ${
-                    isFlightRunning
-                      ? 'bg-warning text-canvas hover:brightness-110'
-                      : 'bg-accent text-canvas hover:brightness-110'
-                  }`}
-                >
-                  {isFlightRunning ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
-                  <span>{isFlightRunning ? 'HOLD PATTERN (PAUSE)' : 'COMMENCE FLIGHT'}</span>
-                </button>
-
-                <button
-                  onClick={resetFlight}
-                  className="p-3.5 rounded-xl bg-canvas border border-border hover:border-accent/50 text-text-muted hover:text-text-main transition shadow-sm"
-                  title="Reset Flight"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Flight Parameters */}
-              <div className="mt-8 pt-4 border-t border-border flex items-center justify-between text-xs font-mono text-text-muted">
-                <div className="flex items-center space-x-2">
-                  <span>Flight Duration:</span>
-                  <input
-                    type="number"
-                    min="5"
-                    max="180"
-                    disabled={isFlightRunning}
-                    value={flightTotalMins}
-                    onChange={(e) => {
-                      const v = parseInt(e.target.value) || 60;
-                      setFlightTotalMins(v);
-                      if (!isFlightRunning) setFlightSecondsLeft(v * 60);
-                    }}
-                    className="w-16 bg-canvas border border-border rounded px-2 py-1 text-center font-mono text-text-main disabled:opacity-50"
-                  />
-                  <span>Minutes</span>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <span>Callsign:</span>
-                  <input
-                    type="text"
-                    value={callsign}
-                    onChange={(e) => setCallsign(e.target.value.toUpperCase())}
-                    className="w-28 bg-canvas border border-border rounded px-2 py-1 text-center font-mono text-text-main"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+          <FlightTimer
+            subjects={subjects}
+            onSessionLogged={(newLog) => {
+              setSessionLogs((prev) => [newLog, ...prev]);
+              setTotalTimeSecs((prev) => prev + newLog.duration_seconds);
+            }}
+          />
         )}
 
         {/* ========================================================= */}
