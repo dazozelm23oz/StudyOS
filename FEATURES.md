@@ -21,11 +21,11 @@ Status Key:
 
 ## 1. Core Architecture & Runtime
 - `[DONE]` Living project documentation & Git repository (`Phase 0`)
+- `[DONE]` External ext4 hardlink auto-backup script (`rsync --link-dest`) (`Phase 1b`)
+- `[DONE]` Automated Git commit & push synchronization engine (`Phase 1b`)
 - `[IN PROGRESS]` Tauri v2 desktop shell with native Linux webview (`Phase 1`)
 - `[IN PROGRESS]` React 19 + TypeScript + Vite + Tailwind CSS design system (`Phase 1`)
 - `[IN PROGRESS]` SQLite relational database engine with automated migrations (`Phase 1`)
-- `[PLANNED]` External ext4 hardlink auto-backup script (`rsync --link-dest`) (`Phase 1b`)
-- `[PLANNED]` Automated Git commit & push synchronization engine (`Phase 1b`)
 
 ---
 
