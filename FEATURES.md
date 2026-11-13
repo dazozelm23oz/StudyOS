@@ -67,24 +67,24 @@ Status Key:
 ---
 
 ## 6. Study Tracking & Timers
-- `[PLANNED]` Subject guide checklist extractor (converts units to interactive checklist) (`Phase 6`)
-- `[PLANNED]` Hierarchical Todo list (global & per-subject with priorities and due dates) (`Phase 6`)
-- `[PLANNED]` Pomodoro timer with configurable cycles and auto-phase transitions (`Phase 6`)
-- `[PLANNED]` Count-up session timer logging time directly to subjects/resources (`Phase 6`)
-- `[PLANNED]` High-precision stopwatch with lap logging (`Phase 6`)
-- `[PLANNED]` Aviation "Flight-Style" HUD timer (Departure → Cruise → Touchdown) (`Phase 6`)
-- `[PLANNED]` Time-spent analytics dashboard and CSV session export (`Phase 6`)
-- `[PLANNED]` "Today" Mission Control dashboard with toggleable progress widgets (`Phase 6`)
+- `[DONE]` Subject guide checklist extractor (converts units and TOC bookmarks to interactive checklist) (`Phase 6`)
+- `[DONE]` Hierarchical Todo list (global & per-subject with priorities and due dates) (`Phase 6`)
+- `[DONE]` Pomodoro timer with configurable cycles and auto-phase transitions (`Phase 6`)
+- `[DONE]` Count-up session timer logging time directly to subjects/resources (`Phase 6`)
+- `[DONE]` High-precision stopwatch with lap logging (`Phase 6`)
+- `[DONE]` Aviation "Flight-Style" HUD timer (Departure → Cruise → Touchdown) (`Phase 6`)
+- `[DONE]` Time-spent analytics dashboard with SQLite persistence (`Phase 6`)
+- `[DONE]` "Today" Mission Control dashboard with expanded toggleable progress widgets (`Phase 6`)
 
 ---
 
 ## 7. Study Audio & Synthesizers
-- `[PLANNED]` Real-time procedural rain synthesizer via Web Audio API (`Phase 6b`)
-- `[PLANNED]` Wind gust LFO modulation and Brownian noise thunder rumble bursts (`Phase 6b`)
-- `[PLANNED]` Local audio file importer (`.mp3`, `.wav`, `.ogg`, `.flac`, `.m4a`) (`Phase 6b`)
-- `[PLANNED]` Multi-layer audio mixer with per-channel volume sliders (`Phase 6b`)
-- `[PLANNED]` Named audio presets with auto-attachment to timer phases (`Phase 6b`)
-- `[PLANNED]` Persistent mini-player with master volume and low CPU PipeWire output (`Phase 6b`)
+- `[DONE]` Real-time procedural rain synthesizer via Web Audio API (`Phase 6b`)
+- `[DONE]` Wind gust LFO modulation and Brownian noise thunder rumble bursts (`Phase 6b`)
+- `[DONE]` Local audio file importer (`.mp3`, `.wav`, etc.) with seamless looping (`Phase 6b`)
+- `[DONE]` Multi-layer audio mixer with per-channel volume sliders (`Phase 6b`)
+- `[DONE]` Named audio presets with auto-attachment to timer phases (`Phase 6b`)
+- `[DONE]` Persistent mini-player with master volume and low CPU PipeWire output (`Phase 6b`)
 
 ---
 

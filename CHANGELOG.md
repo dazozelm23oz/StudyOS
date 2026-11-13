@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2026-11-13 (Phase 6 & 6b: Study Timers Suite, Audio Engine & Mini-Player)
+- **Part F: Phase 6 (Study Tracking, Checklists & Timers)**:
+  - **Study Checklist Engine**: Parses extracted PDF TOC bookmarks and unit structures into interactive checklist items with page range tags and completion progress.
+  - **Academic Todo List**: Hierarchical task manager supporting global and per-subject tasks, priority badges (Low, Medium, High, Urgent), due dates, and status filtering.
+  - **Pomodoro Timer**: Configurable work and break intervals with auto-transitions, audio phase triggers, and automatic session logging.
+  - **Session Timer**: Unconstrained count-up study timer linked to active enrolled subjects with direct logging to SQLite.
+  - **Stopwatch**: High-precision chronometer with lap recording, split times, and total elapsed tracking.
+  - **Flight-Style HUD Timer**: Aviation cockpit metaphor (Departure → Climb → Cruise FL380 → Descent → Touchdown) with live altitude profile gauges and Mach airspeed telemetry.
+  - **Time-Spent Analytics**: Persisted SQLite session history with aggregate focus hours, session counters, and historical logs.
+- **Part G: Phase 6b (Procedural Soundscape Engine)**:
+  - **Web Audio API Procedural Rain Synthesizer**: 100% offline procedural pink/white noise audio synthesis with biquad lowpass filtering, LFO wind swells, and Brownian noise thunder bursts.
+  - **Local Audio Importer**: Import local study music tracks (`.mp3`, `.wav`, `.ogg`, `.flac`) with seamless native looping.
+  - **Multi-Layer Mixer**: Individual channel strips for Rain, Wind, Thunder, and Custom Tracks with volume sliders and mute toggles.
+  - **Audio Presets & Phase Binding**: Pre-configured presets (*Gentle Rain & Calm*, *Intense Thunderstorm*, *Windy Mountain Sanctuary*, *Break Silence*) with auto-activation tied to Pomodoro work/break phases.
+  - **Floating Persistent Mini-Player**: Persistent audio pill docked across all application views with real-time animated equalizer bars and volume slider.
+- **Part H: Final Polish & Dashboard Matrix**:
+  - Activated expanded dashboard widget matrix: Focus Chrono Telemetry (`timer_stats`) and Academic Calendar & Schedule (`date_calendar`).
+  - Seamless layout migration ensuring all newly registered dashboard widgets auto-populate existing user layouts.
+
 ### Added - 2026-11-13 (Massive Batch Build: Themes, Phases 2, 3, 4, 5)
 - **UI/UX & Deep Theme Engine (Part A)**:
   - Made "Settings & Vault" tab mandatory and permanently visible.

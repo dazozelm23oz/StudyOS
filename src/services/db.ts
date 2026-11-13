@@ -663,6 +663,210 @@ class DatabaseService {
     if (idx >= 0) this.memoryStore.themes[idx] = theme;
     else this.memoryStore.themes.push(theme);
   }
+
+  // --- Checklist Items (Subject Study Checklist) ---
+  async getChecklistItems(subjectId: string): Promise<ChecklistItem[]> {
+    if (this.isTauri && this.db) {
+      const rows: any[] = await this.db.select(
+        'SELECT * FROM checklist_items WHERE subject_id = $1 ORDER BY sort_order ASC',
+        [subjectId]
+      );
+      return rows.map((r) => ({ ...r, is_completed: Boolean(r.is_completed) }));
+    }
+    return (this.memoryStore.checklist_items || [])
+      .filter((i: ChecklistItem) => i.subject_id === subjectId)
+      .sort((a: ChecklistItem, b: ChecklistItem) => a.sort_order - b.sort_order);
+  }
+
+  async saveChecklistItem(item: ChecklistItem): Promise<void> {
+    if (this.isTauri && this.db) {
+      await this.db.execute(
+        `INSERT OR REPLACE INTO checklist_items (id, subject_id, title, page_range, is_completed, sort_order)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [item.id, item.subject_id, item.title, item.page_range || null, item.is_completed ? 1 : 0, item.sort_order]
+      );
+      return;
+    }
+    if (!this.memoryStore.checklist_items) this.memoryStore.checklist_items = [];
+    const idx = this.memoryStore.checklist_items.findIndex((i: ChecklistItem) => i.id === item.id);
+    if (idx >= 0) this.memoryStore.checklist_items[idx] = item;
+    else this.memoryStore.checklist_items.push(item);
+  }
+
+  async deleteChecklistItem(id: string): Promise<void> {
+    if (this.isTauri && this.db) {
+      await this.db.execute('DELETE FROM checklist_items WHERE id = $1', [id]);
+      return;
+    }
+    if (this.memoryStore.checklist_items) {
+      this.memoryStore.checklist_items = this.memoryStore.checklist_items.filter((i: ChecklistItem) => i.id !== id);
+    }
+  }
+
+  async toggleChecklistItem(id: string, isCompleted: boolean): Promise<void> {
+    if (this.isTauri && this.db) {
+      await this.db.execute('UPDATE checklist_items SET is_completed = $1 WHERE id = $2', [
+        isCompleted ? 1 : 0,
+        id,
+      ]);
+      return;
+    }
+    const item = (this.memoryStore.checklist_items || []).find((i: ChecklistItem) => i.id === id);
+    if (item) item.is_completed = isCompleted;
+  }
+
+  // --- Todos (Global & Per-Subject) ---
+  async getTodos(subjectId?: string): Promise<TodoItem[]> {
+    if (this.isTauri && this.db) {
+      const sql = subjectId
+        ? 'SELECT * FROM todos WHERE subject_id = $1 ORDER BY created_at DESC'
+        : 'SELECT * FROM todos ORDER BY created_at DESC';
+      const rows: any[] = await this.db.select(sql, subjectId ? [subjectId] : []);
+      return rows.map((r) => ({ ...r, is_completed: Boolean(r.is_completed) }));
+    }
+    return (this.memoryStore.todos || []).filter((t: TodoItem) => !subjectId || t.subject_id === subjectId);
+  }
+
+  async saveTodo(todo: TodoItem): Promise<void> {
+    if (this.isTauri && this.db) {
+      await this.db.execute(
+        `INSERT OR REPLACE INTO todos (id, subject_id, title, priority, due_date, is_completed, notes, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          todo.id,
+          todo.subject_id || null,
+          todo.title,
+          todo.priority,
+          todo.due_date || null,
+          todo.is_completed ? 1 : 0,
+          todo.notes || null,
+          todo.created_at,
+        ]
+      );
+      return;
+    }
+    if (!this.memoryStore.todos) this.memoryStore.todos = [];
+    const idx = this.memoryStore.todos.findIndex((t: TodoItem) => t.id === todo.id);
+    if (idx >= 0) this.memoryStore.todos[idx] = todo;
+    else this.memoryStore.todos.push(todo);
+  }
+
+  async deleteTodo(id: string): Promise<void> {
+    if (this.isTauri && this.db) {
+      await this.db.execute('DELETE FROM todos WHERE id = $1', [id]);
+      return;
+    }
+    if (this.memoryStore.todos) {
+      this.memoryStore.todos = this.memoryStore.todos.filter((t: TodoItem) => t.id !== id);
+    }
+  }
+
+  async toggleTodo(id: string, isCompleted: boolean): Promise<void> {
+    if (this.isTauri && this.db) {
+      await this.db.execute('UPDATE todos SET is_completed = $1 WHERE id = $2', [isCompleted ? 1 : 0, id]);
+      return;
+    }
+    const t = (this.memoryStore.todos || []).find((todo: TodoItem) => todo.id === id);
+    if (t) t.is_completed = isCompleted;
+  }
+
+  // --- Session Logs & Time Tracking Analytics ---
+  async getSessionLogs(subjectId?: string): Promise<SessionLog[]> {
+    if (this.isTauri && this.db) {
+      const sql = subjectId
+        ? 'SELECT * FROM session_logs WHERE subject_id = $1 ORDER BY start_time DESC'
+        : 'SELECT * FROM session_logs ORDER BY start_time DESC';
+      const rows: any[] = await this.db.select(sql, subjectId ? [subjectId] : []);
+      return rows;
+    }
+    return (this.memoryStore.session_logs || []).filter(
+      (l: SessionLog) => !subjectId || l.subject_id === subjectId
+    );
+  }
+
+  async saveSessionLog(log: SessionLog): Promise<void> {
+    if (this.isTauri && this.db) {
+      await this.db.execute(
+        `INSERT OR REPLACE INTO session_logs (id, subject_id, resource_id, timer_kind, start_time, end_time, duration_seconds, audio_preset_name)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          log.id,
+          log.subject_id || null,
+          log.resource_id || null,
+          log.timer_kind,
+          log.start_time,
+          log.end_time,
+          log.duration_seconds,
+          log.audio_preset_name || null,
+        ]
+      );
+      return;
+    }
+    if (!this.memoryStore.session_logs) this.memoryStore.session_logs = [];
+    this.memoryStore.session_logs.unshift(log);
+  }
+
+  async getTotalTimeSeconds(): Promise<number> {
+    if (this.isTauri && this.db) {
+      const rows: any[] = await this.db.select(
+        'SELECT COALESCE(SUM(duration_seconds), 0) as total FROM session_logs'
+      );
+      return rows[0]?.total || 0;
+    }
+    return (this.memoryStore.session_logs || []).reduce(
+      (acc: number, cur: SessionLog) => acc + (cur.duration_seconds || 0),
+      0
+    );
+  }
+
+  // --- Audio Presets ---
+  async getAudioPresets(): Promise<AudioPreset[]> {
+    if (this.isTauri && this.db) {
+      const rows: any[] = await this.db.select('SELECT * FROM audio_presets');
+      return rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        master_volume: r.master_volume,
+        layers: JSON.parse(r.layers_json),
+        attached_timer_phase: r.attached_timer_phase,
+      }));
+    }
+    return (this.memoryStore.audio_presets || []).map((p: any) => ({
+      ...p,
+      layers: typeof p.layers_json === 'string' ? JSON.parse(p.layers_json) : p.layers,
+    }));
+  }
+
+  async saveAudioPreset(preset: AudioPreset): Promise<void> {
+    if (this.isTauri && this.db) {
+      await this.db.execute(
+        `INSERT OR REPLACE INTO audio_presets (id, name, master_volume, layers_json, attached_timer_phase)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [
+          preset.id,
+          preset.name,
+          preset.master_volume,
+          JSON.stringify(preset.layers),
+          preset.attached_timer_phase || 'always',
+        ]
+      );
+      return;
+    }
+    if (!this.memoryStore.audio_presets) this.memoryStore.audio_presets = [];
+    const idx = this.memoryStore.audio_presets.findIndex((p: AudioPreset) => p.id === preset.id);
+    if (idx >= 0) this.memoryStore.audio_presets[idx] = preset;
+    else this.memoryStore.audio_presets.push(preset);
+  }
+
+  async deleteAudioPreset(id: string): Promise<void> {
+    if (this.isTauri && this.db) {
+      await this.db.execute('DELETE FROM audio_presets WHERE id = $1', [id]);
+      return;
+    }
+    if (this.memoryStore.audio_presets) {
+      this.memoryStore.audio_presets = this.memoryStore.audio_presets.filter((p: AudioPreset) => p.id !== id);
+    }
+  }
 }
 
 export const dbService = new DatabaseService();

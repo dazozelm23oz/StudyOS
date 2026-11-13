@@ -20,17 +20,19 @@ import {
   FileText,
   Timer,
 } from 'lucide-react';
-import { Year, Subject, Resource, Profile, DashboardWidget } from '../types';
+import { Year, Subject, Resource, Profile, DashboardWidget, SessionLog } from '../types';
 import { dbService } from '../services/db';
 import { EmptyState } from './EmptyState';
 
 const DEFAULT_WIDGETS: DashboardWidget[] = [
   { id: 'w-welcome', title: 'Mission Briefing', type: 'welcome', visible: true, order: 1 },
   { id: 'w-kpis', title: 'Academic Metrics', type: 'kpis', visible: true, order: 2 },
-  { id: 'w-streak', title: 'Study Streak & Cadence', type: 'study_streak', visible: true, order: 3 },
-  { id: 'w-recent', title: 'Recently Opened PDFs', type: 'recently_opened', visible: true, order: 4 },
-  { id: 'w-subjects', title: 'Active Subjects Vault', type: 'enrolled_subjects', visible: true, order: 5 },
-  { id: 'w-tools', title: 'Quick Launch Matrix', type: 'quick_tools', visible: true, order: 6 },
+  { id: 'w-timer-stats', title: 'Focus Chrono Telemetry', type: 'timer_stats', visible: true, order: 3 },
+  { id: 'w-date', title: 'Academic Calendar & Schedule', type: 'date_calendar', visible: true, order: 4 },
+  { id: 'w-streak', title: 'Study Streak & Cadence', type: 'study_streak', visible: true, order: 5 },
+  { id: 'w-recent', title: 'Recently Opened PDFs', type: 'recently_opened', visible: true, order: 6 },
+  { id: 'w-subjects', title: 'Active Subjects Vault', type: 'enrolled_subjects', visible: true, order: 7 },
+  { id: 'w-tools', title: 'Quick Launch Matrix', type: 'quick_tools', visible: true, order: 8 },
 ];
 
 interface DashboardViewProps {
@@ -43,6 +45,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAddY
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [sessionLogs, setSessionLogs] = useState<SessionLog[]>([]);
+  const [totalTimeSecs, setTotalTimeSecs] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [widgets, setWidgets] = useState<DashboardWidget[]>(DEFAULT_WIDGETS);
   const [isEditingWidgets, setIsEditingWidgets] = useState<boolean>(false);
@@ -55,16 +59,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAddY
   const loadData = async () => {
     setLoading(true);
     try {
-      const [y, s, r, p] = await Promise.all([
+      const [y, s, r, p, logs, totalSec] = await Promise.all([
         dbService.getYears(),
         dbService.getSubjects(),
         dbService.getResources(),
         dbService.getProfile(),
+        dbService.getSessionLogs(),
+        dbService.getTotalTimeSeconds(),
       ]);
       setYears(y);
       setSubjects(s);
       setResources(r);
       setProfile(p);
+      setSessionLogs(logs);
+      setTotalTimeSecs(totalSec);
     } catch (err) {
       console.error(err);
     } finally {
@@ -76,7 +84,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAddY
     const saved = localStorage.getItem('studyos_dashboard_widgets');
     if (saved) {
       try {
-        setWidgets(JSON.parse(saved));
+        const parsed: DashboardWidget[] = JSON.parse(saved);
+        const existingIds = new Set(parsed.map((p) => p.id));
+        const missing = DEFAULT_WIDGETS.filter((dw) => !existingIds.has(dw.id));
+        const merged = [...parsed, ...missing].map((w, idx) => ({ ...w, order: idx + 1 }));
+        setWidgets(merged);
       } catch (e) {
         console.warn('Failed to parse saved widget layout:', e);
       }
@@ -279,6 +291,97 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate, onAddY
                   %
                 </div>
                 <div className="text-xs font-mono text-text-faint mt-1.5 font-medium">Resources studied</div>
+              </div>
+            </div>
+          );
+        }
+
+        // Widget: Timer Stats & Focus Telemetry
+        if (w.type === 'timer_stats') {
+          const hours = Math.floor(totalTimeSecs / 3600);
+          const mins = Math.floor((totalTimeSecs % 3600) / 60);
+          return (
+            <div key={w.id} className="hud-panel p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <div className="font-mono text-sm font-bold tracking-wider text-text-main flex items-center space-x-2">
+                  <Timer className="w-4 h-4 text-primary" />
+                  <span>FOCUS CHRONOMETER TELEMETRY</span>
+                </div>
+                <button
+                  onClick={() => onNavigate('timers')}
+                  className="text-xs font-mono text-primary hover:underline font-semibold"
+                >
+                  Launch Timer Suite →
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-4 rounded-xl bg-canvas border border-border">
+                  <div className="text-xs font-mono text-text-muted">TOTAL TIME INVESTED</div>
+                  <div className="text-2xl font-mono font-bold text-text-main mt-1">
+                    {hours > 0 ? `${hours}h ${mins}m` : `${mins} mins`}
+                  </div>
+                  <div className="text-[10px] font-mono text-success mt-1">Persisted locally in SQLite</div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-canvas border border-border">
+                  <div className="text-xs font-mono text-text-muted">TOTAL SESSIONS</div>
+                  <div className="text-2xl font-mono font-bold text-text-main mt-1">
+                    {sessionLogs.length}
+                  </div>
+                  <div className="text-[10px] font-mono text-primary mt-1">Across all timer modes</div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-canvas border border-border">
+                  <div className="text-xs font-mono text-text-muted">LAST SESSION</div>
+                  <div className="text-base font-mono font-bold text-text-main mt-1 truncate">
+                    {sessionLogs.length > 0
+                      ? `${sessionLogs[0].timer_kind.toUpperCase()} (${Math.round(
+                          sessionLogs[0].duration_seconds / 60
+                        )}m)`
+                      : 'None logged yet'}
+                  </div>
+                  <div className="text-[10px] font-mono text-text-faint mt-1">
+                    {sessionLogs.length > 0
+                      ? new Date(sessionLogs[0].start_time).toLocaleDateString()
+                      : 'Awaiting mission start'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        // Widget: Academic Calendar & Schedule
+        if (w.type === 'date_calendar') {
+          const now = new Date();
+          const dateStr = now.toLocaleDateString([], {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+          });
+          return (
+            <div key={w.id} className="hud-panel p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center space-x-3.5">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary">
+                  <Calendar className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="font-mono text-sm font-bold text-text-main">{dateStr}</div>
+                  <div className="text-xs text-text-muted font-sans mt-0.5">
+                    {profile?.current_semester ? `Active: ${profile.current_semester}` : 'Academic Schedule & Milestones'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => onNavigate('timers')}
+                  className="px-4 py-2 rounded-lg text-xs font-mono bg-canvas border border-border hover:border-primary text-text-main font-semibold transition"
+                >
+                  View Tasks & Checklists
+                </button>
               </div>
             </div>
           );

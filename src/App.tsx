@@ -7,10 +7,12 @@ import { PdfWorkstationView } from './components/PdfWorkstationView';
 import { UnitExtractorView } from './components/UnitExtractorView';
 import { ThemeStudioView } from './components/ThemeStudioView';
 import { SettingsView } from './components/SettingsView';
+import { StudyTimersView } from './components/StudyTimersView';
+import { SoundscapeMixer } from './components/SoundscapeMixer';
+import { FloatingMiniPlayer } from './components/FloatingMiniPlayer';
 import { Theme, DockPosition } from './types';
 import { BUILT_IN_THEMES, applyTheme } from './theme/themes';
 import { dbService } from './services/db';
-import { Clock, Volume2 } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
@@ -151,31 +153,13 @@ export const App: React.FC = () => {
             />
           )}
 
-          {/* Placeholders for Study Timers and Study Audio (Phase 6 / 6b) */}
-          {activeTab === 'timers' && (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center font-mono space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-surface border border-border flex items-center justify-center text-secondary shadow-sm">
-                <Clock className="w-6 h-6 animate-pulse" />
-              </div>
-              <div className="text-base font-bold text-text-main">Study Timers & Cockpit HUD</div>
-              <p className="text-xs text-text-muted max-w-sm">
-                Scheduled for Phase 6: Pomodoro, session timer, stopwatch, and Flight-Style HUD countdown.
-              </p>
-            </div>
-          )}
+          {activeTab === 'timers' && <StudyTimersView />}
 
-          {activeTab === 'audio' && (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center font-mono space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-surface border border-border flex items-center justify-center text-success shadow-sm">
-                <Volume2 className="w-6 h-6 animate-pulse" />
-              </div>
-              <div className="text-base font-bold text-text-main">Procedural Rain & Soundscape Mixer</div>
-              <p className="text-xs text-text-muted max-w-sm">
-                Scheduled for Phase 6b: Real-time Web Audio API rain synthesis, thunder bursts, and multi-track mixing.
-              </p>
-            </div>
-          )}
+          {activeTab === 'audio' && <SoundscapeMixer />}
         </main>
+
+        {/* Persistent Floating Soundscape Mini-Player */}
+        <FloatingMiniPlayer />
 
         {/* Right Dock */}
         {dockPosition === 'right' && (
