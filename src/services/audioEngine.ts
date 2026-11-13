@@ -22,6 +22,7 @@ class StudyAudioEngine {
   private audioBufferCache: Map<string, AudioBuffer> = new Map();
 
   // Active Preset Configuration
+  private manualOverride: boolean = false;
   private activePreset: AudioPreset = {
     id: 'preset-rain-focus',
     name: 'Gentle Rain & Calm',
@@ -149,6 +150,7 @@ class StudyAudioEngine {
   }
 
   public async loadPreset(preset: AudioPreset) {
+    this.manualOverride = false;
     this.activePreset = { ...preset };
     if (this.masterGain && this.ctx) {
       this.masterGain.gain.setValueAtTime(this.activePreset.master_volume, this.ctx.currentTime);
@@ -165,6 +167,7 @@ class StudyAudioEngine {
    * Primary playback toggle with explicit resumption and user click protection
    */
   public async togglePlay() {
+    this.manualOverride = true;
     await this.ensureContext();
     await this.forceResumeContext();
 
@@ -508,7 +511,7 @@ class StudyAudioEngine {
     if (this.activePreset.attached_timer_phase === phase) {
       if (!this.isPlaying) this.start();
     } else if (this.activePreset.attached_timer_phase !== 'always') {
-      if (this.isPlaying) this.stop();
+      if (this.isPlaying && !this.manualOverride) this.stop();
     }
   }
 
