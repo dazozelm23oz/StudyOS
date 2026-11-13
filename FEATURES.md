@@ -89,10 +89,15 @@ Status Key:
 ---
 
 ## 8. Visual Customization & Theming
-- `[PLANNED]` Futuristic Multi-Preset Theme Suite (Cyberdeck HUD, Void Black, Cyber Amber, Deep Nebula) (`Phase 7`)
-- `[PLANNED]` In-app visual theme editor with real-time CSS variable live preview (`Phase 7`)
-- `[PLANNED]` JSON theme export and import (`Phase 7`)
-- `[PLANNED]` Independent Dark / Light mode toggle (`Phase 7`)
+- `[DONE]` High-Contrast Academic Studio flagship theme (WCAG AA compliant) (`Design Overhaul`)
+- `[DONE]` Dynamic Navigation Dock Positioning (Left, Right, Bottom) (`Design Overhaul`)
+- `[DONE]` Reorderable & toggleable dashboard widgets with persistent layout (`Design Overhaul`)
+- `[DONE]` Deep theme customization (UI density, corner radius, surface opacity) (`Design Overhaul`)
+- `[DONE]` Navigation tab visibility checklist management (`Design Overhaul`)
+- `[DONE]` Futuristic Multi-Preset Theme Suite (Academic Studio, Nordic Slate, Obsidian Violet, Cyberdeck HUD) (`Phase 7 base`)
+- `[DONE]` In-app visual theme editor with real-time CSS variable live preview (`Phase 7 base`)
+- `[DONE]` JSON full theme export and import (`Phase 7 base`)
+- `[DONE]` Independent Dark / Light mode toggle (`Phase 7 base`)
 - `[PLANNED]` Banner customization (upload, procedural CSS gradient generator, opt-in cached gallery) (`Phase 7`)
 
 ---

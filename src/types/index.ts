@@ -89,7 +89,7 @@ export interface Highlight {
   id: string;
   resource_id: string;
   page_number: number;
-  rects_json: string; // Array of [x, y, w, h] normalized bounding boxes
+  rects_json: string;
   text_snippet: string;
   color: string;
   note?: string;
@@ -107,7 +107,7 @@ export interface ChecklistItem {
 
 export interface TodoItem {
   id: string;
-  subject_id?: string; // null for global todo
+  subject_id?: string;
   title: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
   due_date?: string;
@@ -147,6 +147,13 @@ export interface ThemeColors {
   danger: string;
 }
 
+export interface ThemeLayout {
+  density: 'compact' | 'comfortable' | 'spacious';
+  borderRadius: 'sharp' | 'rounded' | 'pill';
+  cardOpacity: number; // 0.8 to 1.0
+  cardBlur: number; // 0 to 24px
+}
+
 export interface Theme {
   id: string;
   name: string;
@@ -154,6 +161,7 @@ export interface Theme {
   is_built_in: boolean;
   is_dark: boolean;
   colors: ThemeColors;
+  layout?: ThemeLayout;
 }
 
 export interface AudioLayer {
@@ -161,9 +169,9 @@ export interface AudioLayer {
   kind: 'procedural_rain' | 'wind' | 'thunder' | 'custom_file';
   name: string;
   source_path?: string;
-  volume: number; // 0.0 to 1.0
+  volume: number;
   is_muted: boolean;
-  parameters?: Record<string, number>; // e.g. rain intensity, thunder frequency
+  parameters?: Record<string, number>;
 }
 
 export interface AudioPreset {
@@ -184,7 +192,19 @@ export interface BackupRecord {
   error_message?: string;
 }
 
+export type DockPosition = 'left' | 'right' | 'bottom';
+
+export interface DashboardWidget {
+  id: string;
+  title: string;
+  type: 'welcome' | 'kpis' | 'enrolled_subjects' | 'quick_tools';
+  visible: boolean;
+  order: number;
+}
+
 export interface AppSettings {
+  dock_position: DockPosition;
+  visible_tabs: string[];
   extraction_output_mode: 'merged' | 'split' | 'ask';
   max_pdf_panes: number;
   theme_id: string;
@@ -193,4 +213,5 @@ export interface AppSettings {
   backup_destination: string;
   gallery_online_enabled: boolean;
   flight_timer_sound_enabled: boolean;
+  dashboard_widgets?: DashboardWidget[];
 }

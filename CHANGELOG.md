@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed - 2026-11-13 (UI/UX Design Overhaul & Dynamic Layout Engine)
+- **High-Contrast Academic Design System**: Replaced neon hacker-terminal aesthetics with *Academic Studio* — an elegant, high-contrast theme featuring rich indigo/sky/amber accents, solid opaque cards (95% opacity), and WCAG AA compliant text contrast (`#ffffff` headings, `#e2e8f0` body text, and `#94a3b8` secondary telemetry labels).
+- **Host Telemetry & Contrast Fixes**: Eliminated dim transparent cards. Host Telemetry widget, status indicators, and all secondary metadata now render with high-contrast text against solid slate backgrounds.
+- **Dynamic Navigation Dock Engine (`src/components/Sidebar.tsx`, `Header.tsx`, `SettingsView.tsx`)**: Added user-configurable dock positioning supporting **Left** (default vertical sidebar), **Right** (vertical right dock), and **Bottom** (horizontal floating dock) layouts with instant hot-switching.
+- **Customizable Dashboard Widgets (`src/components/DashboardView.tsx`)**: Made dashboard widgets reorderable and toggleable (Mission Briefing, Academic Metrics, Active Subjects, Quick Launch Matrix) with persistent layout saving.
+- **Deep Theme Studio Customization (`src/components/ThemeStudioView.tsx`)**: Added layout geometry controls for UI Density (Compact, Comfortable, Spacious), Corner Radius (Sharp, Rounded, Pill), and Surface Opacity sliders. Enhanced theme JSON export/import to serialize full aesthetic matrices.
+- **Navigation Tab Visibility Filtering**: Added tab visibility checklist in Settings allowing users to customize which sidebar navigation items appear.
+
 ### Added - 2026-11-13 (Phase 1: Tauri Shell, SQLite Engine, Empty State & Theming)
 - **Tauri v2 Native Desktop Runtime**: Configured Tauri v2 core with native plugins (`sql`, `fs`, `dialog`, `notification`, `log`) for Fedora KDE desktop integration.
 - **SQLite Database Architecture (`src/services/db.ts`)**: Designed and implemented automated relational migrations for 13 tables (`profile`, `years`, `semesters`, `subjects`, `resource_types`, `resources`, `units`, `highlights`, `checklist_items`, `todos`, `session_logs`, `themes`, `audio_presets`, `backup_history`, `app_settings`).
