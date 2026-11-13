@@ -28,8 +28,8 @@
         { "path": "$APPDATA/**" },
         { "path": "data/**" },
         { "path": "./data/**" },
-        { "path": "$APPDATA" },
-        { "path": "data" }
+        { "path": "$HOME/**" },
+        { "path": "**" }
       ]
     },
     {
@@ -38,8 +38,8 @@
         { "path": "$APPDATA/**" },
         { "path": "data/**" },
         { "path": "./data/**" },
-        { "path": "$APPDATA" },
-        { "path": "data" }
+        { "path": "$HOME/**" },
+        { "path": "**" }
       ]
     },
     "dialog:default",
