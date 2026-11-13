@@ -22,6 +22,9 @@ class StudyAudioEngine {
   private customAudio: HTMLAudioElement | null = null;
   private audioBufferCache: Map<string, AudioBuffer> = new Map();
 
+  // Watchdog heartbeat for Linux PipeWire / WebKitGTK uncorking and auto-recovery
+  private watchdogInterval: any = null;
+
   // Active Preset Configuration
   private manualOverride: boolean = false;
   private activePreset: AudioPreset = {
@@ -42,17 +45,61 @@ class StudyAudioEngine {
     // Global user gesture listener: Force-resumes WebKitGTK AudioContext on every click/touch
     if (typeof window !== 'undefined') {
       const handleUserGesture = () => {
-        if (this.ctx && this.ctx.state === 'suspended') {
+        if (this.ctx && (this.ctx.state === 'suspended' || (this.ctx.state as any) === 'interrupted')) {
           this.ctx.resume().then(() => {
-            console.log("AudioContext state on user gesture:", this.ctx?.state);
-          }).catch((err) => console.warn("Failed to resume AudioContext on gesture:", err));
+            console.log("[AudioEngine] AudioContext resumed on user gesture. State:", this.ctx?.state);
+          }).catch((err) => console.warn("[AudioEngine] Failed to resume AudioContext on gesture:", err));
         }
       };
 
       window.addEventListener('click', handleUserGesture, { capture: true, passive: true });
       window.addEventListener('touchstart', handleUserGesture, { capture: true, passive: true });
       window.addEventListener('keydown', handleUserGesture, { capture: true, passive: true });
+
+      // Start the auto-recovery watchdog heartbeat
+      this.startWatchdog();
     }
+  }
+
+  /**
+   * Watchdog timer that continuously runs while audio is expected to be playing.
+   * Auto-detects device switching (Bluetooth connect/disconnect), PipeWire stream corking,
+   * and WebKitGTK AudioContext state suspension or interruption.
+   */
+  private startWatchdog() {
+    if (this.watchdogInterval) return;
+
+    this.watchdogInterval = setInterval(() => {
+      if (!this.isPlaying) return;
+
+      // 1. Check AudioContext state and auto-resume if suspended or interrupted
+      if (this.ctx) {
+        const state = this.ctx.state as string;
+        if (state === 'suspended' || state === 'interrupted') {
+          console.log(`[AudioEngine Watchdog] Detected ${state} context while isPlaying=true. Auto-resuming...`);
+          this.ctx.resume().catch((err) => console.warn("[AudioEngine Watchdog] Resume error:", err));
+        }
+      }
+
+      // 2. Check procedural rain node
+      const rainLayer = this.activePreset.layers.find((l) => l.kind === 'procedural_rain');
+      if (rainLayer && !rainLayer.is_muted && !this.activeSourceNode && this.ctx && this.ctx.state === 'running') {
+        console.log("[AudioEngine Watchdog] Procedural rain node missing while playing. Restarting...");
+        this.startRainNode(rainLayer.volume);
+      }
+
+      // 3. Check custom audio element
+      const customLayer = this.activePreset.layers.find((l) => l.kind === 'custom_file');
+      if (customLayer && customLayer.source_path && !customLayer.is_muted) {
+        if (this.customAudio && this.customAudio.paused) {
+          console.log("[AudioEngine Watchdog] Custom HTMLAudio is paused while isPlaying=true. Auto-playing...");
+          this.customAudio.play().catch(() => {});
+        } else if (!this.customAudio && !this.activeCustomNode && this.ctx && this.ctx.state === 'running') {
+          console.log("[AudioEngine Watchdog] Custom audio node missing while playing. Restarting...");
+          this.startCustomAudio(customLayer.source_path, customLayer.volume);
+        }
+      }
+    }, 500);
   }
 
   /**
@@ -60,13 +107,24 @@ class StudyAudioEngine {
    * Ensures masterGain is created, connected to destination, and has volume applied
    */
   public async ensureContext(): Promise<AudioContext> {
-    if (!this.ctx) {
+    if (!this.ctx || this.ctx.state === 'closed') {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      this.ctx = new AudioCtx();
+      // Target 48000 Hz to match native PipeWire hardware and Bluetooth headset sinks
+      try {
+        this.ctx = new AudioCtx({ sampleRate: 48000 });
+      } catch (e) {
+        this.ctx = new AudioCtx();
+      }
+
+      // Anchor to global window object to prevent any GC in JavaScriptCore
+      (window as any).__studyos_ctx = this.ctx;
 
       // WebKitGTK Compatible Event Listening
       this.ctx.onstatechange = () => {
-        console.log("AudioContext state:", this.ctx?.state);
+        console.log("[AudioEngine] AudioContext state change:", this.ctx?.state);
+        if (this.isPlaying && this.ctx && ((this.ctx.state as any) === 'interrupted' || this.ctx.state === 'suspended')) {
+          this.ctx.resume().catch((err) => console.warn("[AudioEngine] Auto-resume failed:", err));
+        }
       };
 
       this.masterGain = this.ctx.createGain();
@@ -81,12 +139,12 @@ class StudyAudioEngine {
     }
 
     // Explicit Context Resumption check
-    if (this.ctx.state === 'suspended') {
+    if (this.ctx.state === 'suspended' || (this.ctx.state as any) === 'interrupted') {
       try {
         await this.ctx.resume();
-        console.log("AudioContext resumed. State:", this.ctx.state);
+        console.log("[AudioEngine] AudioContext resumed. State:", this.ctx.state);
       } catch (e) {
-        console.warn("Could not resume AudioContext:", e);
+        console.warn("[AudioEngine] Could not resume AudioContext:", e);
       }
     }
 
@@ -94,19 +152,19 @@ class StudyAudioEngine {
   }
 
   /**
-   * Explicitly force-resumes context (called on every play button click)
+   * Explicitly force-resumes context (called on user click/touch)
    */
   public async forceResumeContext(): Promise<void> {
     if (!this.ctx) {
       await this.ensureContext();
       return;
     }
-    if (this.ctx.state === 'suspended') {
+    if (this.ctx.state === 'suspended' || (this.ctx.state as any) === 'interrupted') {
       try {
         await this.ctx.resume();
-        console.log("AudioContext force-resumed via click handler. State:", this.ctx.state);
+        console.log("[AudioEngine] AudioContext force-resumed. State:", this.ctx.state);
       } catch (e) {
-        console.warn("Error force-resuming AudioContext:", e);
+        console.warn("[AudioEngine] Error force-resuming AudioContext:", e);
       }
     }
   }
@@ -172,10 +230,16 @@ class StudyAudioEngine {
   }
 
   /**
-   * Primary playback toggle with explicit resumption, user click protection, and manual override tracking
+   * Primary playback toggle with immediate synchronous activation and manual override tracking
    */
   public async togglePlay() {
     this.manualOverride = true;
+
+    // Immediately trigger synchronous resume on user click
+    if (this.ctx && (this.ctx.state === 'suspended' || (this.ctx.state as any) === 'interrupted')) {
+      this.ctx.resume().catch(() => {});
+    }
+
     await this.ensureContext();
     await this.forceResumeContext();
 
@@ -239,6 +303,7 @@ class StudyAudioEngine {
     // Stop and disconnect procedural rain node
     if (this.activeSourceNode) {
       try {
+        this.activeSourceNode.onended = null;
         this.activeSourceNode.stop();
         this.activeSourceNode.disconnect();
       } catch (e) {}
@@ -251,6 +316,7 @@ class StudyAudioEngine {
     // Stop and disconnect custom audio buffer node
     if (this.activeCustomNode) {
       try {
+        this.activeCustomNode.onended = null;
         this.activeCustomNode.stop();
         this.activeCustomNode.disconnect();
       } catch (e) {}
@@ -278,6 +344,8 @@ class StudyAudioEngine {
     // Stop and remove fallback HTMLAudioElement from DOM
     if (this.customAudio) {
       try {
+        this.customAudio.onpause = null;
+        this.customAudio.onended = null;
         this.customAudio.pause();
         if (this.customAudio.parentNode) {
           this.customAudio.parentNode.removeChild(this.customAudio);
@@ -316,8 +384,9 @@ class StudyAudioEngine {
   }
 
   /**
-   * Procedural Rain generator: Generates continuous pink/white noise, sets loop bounds,
+   * Procedural Rain generator: Generates continuous pink noise, sets seamless loop bounds,
    * connects source -> lowpass filter -> gain -> masterGain, and prevents GC.
+   * Auto-restarts if onended ever fires while isPlaying is active.
    */
   private startRainNode(volume: number) {
     if (!this.ctx || !this.masterGain) return;
@@ -325,28 +394,52 @@ class StudyAudioEngine {
     // Disconnect any prior rain node
     if (this.activeSourceNode) {
       try {
+        this.activeSourceNode.onended = null;
         this.activeSourceNode.stop();
         this.activeSourceNode.disconnect();
       } catch (e) {}
       this.activeSourceNode = null;
     }
 
-    // 2-second looping white/pink noise buffer
-    const bufferSize = this.ctx.sampleRate * 2;
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+    // 5-second seamless pink noise buffer
+    const bufferSize = this.ctx.sampleRate * 5;
+    const buffer = this.ctx.createBuffer(2, bufferSize, this.ctx.sampleRate);
+    const dataL = buffer.getChannelData(0);
+    const dataR = buffer.getChannelData(1);
+
+    let b0L = 0, b1L = 0, b2L = 0, b3L = 0, b4L = 0, b5L = 0, b6L = 0;
+    let b0R = 0, b1R = 0, b2R = 0, b3R = 0, b4R = 0, b5R = 0, b6R = 0;
 
     for (let i = 0; i < bufferSize; i++) {
-      const white = Math.random() * 2 - 1;
-      b0 = 0.99886 * b0 + white * 0.0555179;
-      b1 = 0.99332 * b1 + white * 0.0750759;
-      b2 = 0.96900 * b2 + white * 0.1538520;
-      b3 = 0.86650 * b3 + white * 0.3104856;
-      b4 = 0.55000 * b4 + white * 0.5329522;
-      b5 = -0.7616 * b5 - white * 0.0168980;
-      data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.25;
-      b6 = white * 0.115926;
+      // Left channel Paul Kellet pink noise filter
+      const whiteL = Math.random() * 2 - 1;
+      b0L = 0.99886 * b0L + whiteL * 0.0555179;
+      b1L = 0.99332 * b1L + whiteL * 0.0750759;
+      b2L = 0.96900 * b2L + whiteL * 0.1538520;
+      b3L = 0.86650 * b3L + whiteL * 0.3104856;
+      b4L = 0.55000 * b4L + whiteL * 0.5329522;
+      b5L = -0.7616 * b5L - whiteL * 0.0168980;
+      dataL[i] = (b0L + b1L + b2L + b3L + b4L + b5L + b6L + whiteL * 0.5362) * 0.25;
+      b6L = whiteL * 0.115926;
+
+      // Right channel (independent stereo decorrelation)
+      const whiteR = Math.random() * 2 - 1;
+      b0R = 0.99886 * b0R + whiteR * 0.0555179;
+      b1R = 0.99332 * b1R + whiteR * 0.0750759;
+      b2R = 0.96900 * b2R + whiteR * 0.1538520;
+      b3R = 0.86650 * b3R + whiteR * 0.3104856;
+      b4R = 0.55000 * b4R + whiteR * 0.5329522;
+      b5R = -0.7616 * b5R - whiteR * 0.0168980;
+      dataR[i] = (b0R + b1R + b2R + b3R + b4R + b5R + b6R + whiteR * 0.5362) * 0.25;
+      b6R = whiteR * 0.115926;
+    }
+
+    // Apply smooth 100ms circular crossfade at loop boundary to ensure zero click/pop
+    const fadeSamples = Math.floor(this.ctx.sampleRate * 0.1);
+    for (let i = 0; i < fadeSamples; i++) {
+      const alpha = i / fadeSamples;
+      dataL[i] = dataL[i] * alpha + dataL[bufferSize - fadeSamples + i] * (1 - alpha);
+      dataR[i] = dataR[i] * alpha + dataR[bufferSize - fadeSamples + i] * (1 - alpha);
     }
 
     const source = this.ctx.createBufferSource();
@@ -355,7 +448,7 @@ class StudyAudioEngine {
     // THE LOOP FLAG: Explicitly set on generated rain node
     source.loop = true;
     source.loopStart = 0;
-    source.loopEnd = buffer.duration;
+    source.loopEnd = 0; // 0 means loop the entire buffer without boundary mismatch
 
     // Lowpass filter for natural rainfall acoustics
     this.rainFilter = this.ctx.createBiquadFilter();
@@ -368,6 +461,17 @@ class StudyAudioEngine {
     source.connect(this.rainFilter);
     this.rainFilter.connect(this.rainGain);
     this.rainGain.connect(this.masterGain);
+
+    // Auto-restart safeguard if WebKitGTK drops the node on device switch
+    source.onended = () => {
+      if (this.isPlaying && this.activeSourceNode === source) {
+        console.log("[AudioEngine] Rain node ended while isPlaying=true. Auto-recovering...");
+        const rainL = this.activePreset.layers.find((l) => l.kind === 'procedural_rain');
+        if (rainL && !rainL.is_muted) {
+          this.startRainNode(rainL.volume);
+        }
+      }
+    };
 
     // GARBAGE COLLECTION PREVENTER: Retain reference in class property & window registry
     this.activeSourceNode = source;
@@ -470,8 +574,8 @@ class StudyAudioEngine {
   /**
    * Custom Audio Playback:
    * 1. Uses convertFileSrc to bypass Tauri CSP for local files
-   * 2. Decodes via Web Audio API with loop flag
-   * 3. Attaches fallback HTMLAudioElement to the DOM for WebKitGTK compliance
+   * 2. Plays via Web Audio API or DOM-attached HTML5 audio with auto-looping
+   * 3. Includes auto-recovery on device switch and pause events
    */
   private async startCustomAudio(sourcePath: string, volume: number) {
     await this.ensureContext();
@@ -481,6 +585,7 @@ class StudyAudioEngine {
     // Disconnect any active custom node
     if (this.activeCustomNode) {
       try {
+        this.activeCustomNode.onended = null;
         this.activeCustomNode.stop();
         this.activeCustomNode.disconnect();
       } catch (e) {}
@@ -490,6 +595,8 @@ class StudyAudioEngine {
     // Stop and remove fallback HTMLAudioElement if running
     if (this.customAudio) {
       try {
+        this.customAudio.onpause = null;
+        this.customAudio.onended = null;
         this.customAudio.pause();
         if (this.customAudio.parentNode) {
           this.customAudio.parentNode.removeChild(this.customAudio);
@@ -499,7 +606,7 @@ class StudyAudioEngine {
     }
 
     // Convert local filesystem paths to safe Tauri asset URLs to bypass CSP
-    const safeUrl = (sourcePath.startsWith('blob:') || sourcePath.startsWith('data:') || sourcePath.startsWith('asset:'))
+    const safeUrl = (sourcePath.startsWith('blob:') || sourcePath.startsWith('data:') || sourcePath.startsWith('asset:') || sourcePath.startsWith('http'))
       ? sourcePath
       : convertFileSrc(sourcePath);
 
@@ -519,7 +626,7 @@ class StudyAudioEngine {
       // THE LOOP FLAG: Explicitly set on imported audio file node
       source.loop = true;
       source.loopStart = 0;
-      source.loopEnd = audioBuffer.duration;
+      source.loopEnd = 0; // Seamless full-buffer loop
 
       this.customAudioGain = this.ctx.createGain();
       this.customAudioGain.gain.setValueAtTime(volume, this.ctx.currentTime);
@@ -527,19 +634,25 @@ class StudyAudioEngine {
       source.connect(this.customAudioGain);
       this.customAudioGain.connect(this.masterGain);
 
+      // Auto-reconnect safeguard if WebKitGTK drops the node on device switch
+      source.onended = () => {
+        if (this.isPlaying && this.activeCustomNode === source) {
+          console.log("[AudioEngine] Custom audio source ended while isPlaying=true. Auto-recovering...");
+          const customL = this.activePreset.layers.find((l) => l.kind === 'custom_file');
+          if (customL && customL.source_path && !customL.is_muted) {
+            this.startCustomAudio(customL.source_path, customL.volume);
+          }
+        }
+      };
+
       // GARBAGE COLLECTION PREVENTER: Retain reference in class property & window registry
       this.activeCustomNode = source;
       ((window as any).__studyos_active_nodes = (window as any).__studyos_active_nodes || new Set()).add(source);
 
-      source.onended = () => {
-        if ((window as any).__studyos_active_nodes) {
-          (window as any).__studyos_active_nodes.delete(source);
-        }
-      };
-
       source.start(0);
     } catch (err) {
-      console.warn("Web Audio decodeAudioData failed, falling back to DOM-attached HTMLAudioElement:", err);
+      console.warn("[AudioEngine] Web Audio decodeAudioData failed, falling back to DOM-attached HTMLAudioElement:", err);
+
       // Fallback with mandatory DOM attachment for WebKitGTK
       this.customAudio = new Audio(safeUrl);
       this.customAudio.loop = true;
@@ -547,8 +660,22 @@ class StudyAudioEngine {
       this.customAudio.style.display = 'none';
       document.body.appendChild(this.customAudio);
 
+      // Add auto-recovery event handlers to ensure audio never dies on device switch
+      this.customAudio.onpause = () => {
+        if (this.isPlaying && this.customAudio) {
+          console.log("[AudioEngine] Fallback HTMLAudio paused unexpectedly. Auto-resuming...");
+          this.customAudio.play().catch(() => {});
+        }
+      };
+      this.customAudio.onended = () => {
+        if (this.isPlaying && this.customAudio) {
+          this.customAudio.currentTime = 0;
+          this.customAudio.play().catch(() => {});
+        }
+      };
+
       (window as any).__studyos_custom_audio = this.customAudio;
-      this.customAudio.play().catch((e) => console.warn("Could not play custom audio element:", e));
+      this.customAudio.play().catch((e) => console.warn("[AudioEngine] Could not play custom audio element:", e));
     }
   }
 

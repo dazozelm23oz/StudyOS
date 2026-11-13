@@ -597,7 +597,7 @@ mod tests {
         let is_running_audio = Arc::clone(&is_running);
         let audio_samples_counter = Arc::clone(&audio_samples_generated);
         let audio_handle = thread::spawn(move || {
-            let sample_rate = 44100;
+            let _sample_rate = 44100;
             let block_size = 441; // 10ms audio quantum
             let mut b0 = 0.0f32;
             let mut b1 = 0.0f32;

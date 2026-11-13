@@ -210,9 +210,30 @@ fn validate_page_ranges(range_str: String, max_pages: u32) -> Result<Vec<u32>, S
     pdf_engine::parse_page_ranges(&range_str, max_pages)
 }
 
+use tauri::Manager;
+#[cfg(target_os = "linux")]
+use webkit2gtk::{SettingsExt, WebViewExt};
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .setup(|app| {
+            #[cfg(target_os = "linux")]
+            {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.with_webview(|webview| {
+                        let wk_view = webview.inner();
+                        if let Some(settings) = wk_view.settings() {
+                            settings.set_enable_webaudio(true);
+                            settings.set_enable_media(true);
+                            settings.set_media_playback_requires_user_gesture(false);
+                            settings.set_media_playback_allows_inline(true);
+                        }
+                    });
+                }
+            }
+            Ok(())
+        })
         .plugin(tauri_plugin_log::Builder::default().build())
         .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_fs::init())

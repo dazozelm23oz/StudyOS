@@ -4307,6 +4307,7 @@ dependencies = [
  "tauri-plugin-notification",
  "tauri-plugin-sql",
  "uuid",
+ "webkit2gtk",
 ]
 
 [[package]]
