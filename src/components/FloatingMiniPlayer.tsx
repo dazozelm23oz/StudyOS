@@ -1,11 +1,23 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { Play, Pause, Volume2, ChevronUp, ChevronDown, Lock, Unlock, GripHorizontal } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 import { AudioPreset } from '../types';
-import { audioEngine } from '../services/audioEngine';
+
+const DEFAULT_PRESET: AudioPreset = {
+  id: 'preset-rain-focus',
+  name: 'Gentle Rain & Calm',
+  master_volume: 0.8,
+  attached_timer_phase: 'work',
+  layers: [
+    { id: 'l-rain', kind: 'procedural_rain', name: 'Procedural Rain', volume: 0.75, is_muted: false },
+    { id: 'l-wind', kind: 'wind', name: 'Wind Swells', volume: 0.35, is_muted: false },
+    { id: 'l-thunder', kind: 'thunder', name: 'Distant Thunder', volume: 0.4, is_muted: false },
+  ],
+};
 
 export const FloatingMiniPlayer: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [activePreset, setActivePreset] = useState<AudioPreset>(audioEngine.getActivePreset());
+  const [activePreset, setActivePreset] = useState<AudioPreset>(DEFAULT_PRESET);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [isLocked, setIsLocked] = useState<boolean>(() => {
     return localStorage.getItem('studyos_miniplayer_locked') === 'true';
@@ -30,22 +42,33 @@ export const FloatingMiniPlayer: React.FC = () => {
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
 
-  useEffect(() => {
-    const unsub = audioEngine.subscribe((playing, preset) => {
-      setIsPlaying(playing);
-      setActivePreset({ ...preset });
-    });
-    return () => unsub();
-  }, []);
-
   const handleTogglePlay = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
-    await audioEngine.forceResumeContext();
-    await audioEngine.togglePlay();
+    if (isPlaying) {
+      try {
+        await invoke('stop_audio');
+        setIsPlaying(false);
+      } catch (err) {
+        console.error('Failed to stop native audio:', err);
+      }
+    } else {
+      try {
+        await invoke('start_rain');
+        setIsPlaying(true);
+      } catch (err) {
+        console.error('Failed to start native audio:', err);
+      }
+    }
   };
 
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    audioEngine.setMasterVolume(parseFloat(e.target.value));
+  const handleVolumeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseFloat(e.target.value);
+    setActivePreset((prev) => ({ ...prev, master_volume: val }));
+    try {
+      await invoke('set_audio_volume', { volume: val });
+    } catch (err) {
+      console.error('Failed to set native volume:', err);
+    }
   };
 
   const toggleLock = (e: React.MouseEvent) => {
@@ -105,7 +128,6 @@ export const FloatingMiniPlayer: React.FC = () => {
             {/* Play/Pause Button */}
             <button
               onClick={handleTogglePlay}
-              onPointerDown={() => audioEngine.forceResumeContext()}
               className={`w-9 h-9 rounded-xl flex items-center justify-center transition shadow-sm flex-shrink-0 ${
                 isPlaying
                   ? 'bg-success text-canvas hover:brightness-110'

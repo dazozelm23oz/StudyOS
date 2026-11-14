@@ -16,7 +16,6 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { Subject, SessionLog } from '../../types';
-import { audioEngine } from '../../services/audioEngine';
 import { dbService } from '../../services/db';
 
 interface FlightTimerProps {
@@ -87,7 +86,6 @@ export const FlightTimer: React.FC<FlightTimerProps> = ({ subjects = [], onSessi
   const handleTouchdown = async () => {
     setIsFlightRunning(false);
     setIsTouchdown(true);
-    audioEngine.playChime();
 
     const durationSec = flightDurationMins * 60;
     const now = new Date();
@@ -120,12 +118,10 @@ export const FlightTimer: React.FC<FlightTimerProps> = ({ subjects = [], onSessi
   // Stage Transitions
   const handleIssueTicket = (e: React.FormEvent) => {
     e.preventDefault();
-    audioEngine.playChime();
     setActiveStage('ticket');
   };
 
   const handleBoardFlight = () => {
-    audioEngine.playTakeoffSweep();
     setFlightSecondsLeft(flightDurationMins * 60);
     setIsTouchdown(false);
     setIsFlightRunning(true);
@@ -133,9 +129,6 @@ export const FlightTimer: React.FC<FlightTimerProps> = ({ subjects = [], onSessi
   };
 
   const handleToggleFlight = () => {
-    if (!isFlightRunning) {
-      audioEngine.ensureContext();
-    }
     setIsFlightRunning(!isFlightRunning);
   };
 
@@ -153,7 +146,6 @@ export const FlightTimer: React.FC<FlightTimerProps> = ({ subjects = [], onSessi
   };
 
   const toggleSeatbelt = () => {
-    audioEngine.playChime();
     setSeatbeltFastened(!seatbeltFastened);
   };
 

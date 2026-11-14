@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { Subject, Resource, Unit, ChecklistItem, TodoItem, SessionLog } from '../types';
 import { dbService } from '../services/db';
-import { audioEngine } from '../services/audioEngine';
+import { invoke } from '@tauri-apps/api/core';
 import { FlightTimer } from './timers/FlightTimer';
 
 type TimerTab = 'pomodoro' | 'session' | 'stopwatch' | 'flight' | 'checklist' | 'todos' | 'analytics';
@@ -179,7 +179,11 @@ export const StudyTimersView: React.FC = () => {
     }
 
     // Trigger Audio Engine phase sync
-    audioEngine.handleTimerPhase(nextPhase);
+    if (nextPhase === 'work') {
+      invoke('start_rain').catch(() => {});
+    } else {
+      invoke('stop_audio').catch(() => {});
+    }
 
     setPomoPhase(nextPhase);
     setPomoSecondsLeft(nextSeconds);
@@ -188,7 +192,11 @@ export const StudyTimersView: React.FC = () => {
   const togglePomo = () => {
     if (!isPomoRunning) {
       // Starting work or break
-      audioEngine.handleTimerPhase(pomoPhase);
+      if (pomoPhase === 'work') {
+        invoke('start_rain').catch(() => {});
+      } else {
+        invoke('stop_audio').catch(() => {});
+      }
     }
     setIsPomoRunning(!isPomoRunning);
   };
@@ -217,7 +225,7 @@ export const StudyTimersView: React.FC = () => {
   const startSession = () => {
     setSessionStartTime(new Date().toISOString());
     setIsSessionRunning(true);
-    audioEngine.handleTimerPhase('work');
+    invoke('start_rain').catch(() => {});
   };
 
   const pauseSession = () => {
@@ -312,7 +320,7 @@ export const StudyTimersView: React.FC = () => {
 
   const toggleFlight = () => {
     if (!isFlightRunning) {
-      audioEngine.handleTimerPhase('work');
+      invoke('start_rain').catch(() => {});
     }
     setIsFlightRunning(!isFlightRunning);
   };

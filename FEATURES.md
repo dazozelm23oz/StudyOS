@@ -79,9 +79,9 @@ Status Key:
 ---
 
 ## 7. Study Audio & Synthesizers
-- `[DONE]` Real-time procedural rain synthesizer via Web Audio API (`Phase 6b`)
-- `[DONE]` Wind gust LFO modulation and Brownian noise thunder rumble bursts (`Phase 6b`)
-- `[DONE]` Local audio file importer (`.mp3`, `.wav`, etc.) with seamless looping (`Phase 6b`)
+- `[DONE]` High-performance native Rust procedural rain synthesizer via `rodio` (`Phase 6b & Architecture Pivot`)
+- `[DONE]` Native Rust multi-threaded audio worker over channel message bus (`AudioCommand`) eliminating WebKitGTK GC and suspension issues (`Architecture Pivot`)
+- `[DONE]` Native Rust local audio file decoder and player (`.mp3`, `.wav`, `.ogg`, `.flac`) via `rodio` with seamless looping (`Architecture Pivot`)
 - `[DONE]` Multi-layer audio mixer with per-channel volume sliders (`Phase 6b`)
 - `[DONE]` Named audio presets with auto-attachment to timer phases (`Phase 6b`)
 - `[DONE]` Persistent mini-player with master volume and low CPU PipeWire output (`Phase 6b`)

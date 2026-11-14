@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed & Fixed - 2026-11-14 (Architecture Pivot: Native Rust Audio Engine & SQLite Persistence Fix)
+- **Native Rust Audio Engine Migration (`src-tauri/src/audio.rs`)**:
+  - Replaced the fragile WebKitGTK JavaScript Web Audio API (`audioEngine.ts`) with a robust multi-threaded Rust native audio backend powered by `rodio` and `rand`.
+  - Implemented an isolated background worker thread managing `rodio::OutputStream` and `rodio::Sink` via channel messages (`AudioCommand`), avoiding Linux ALSA `!Send` thread-crossing issues.
+  - Implemented real-time procedural pink noise generation (`PinkNoiseSource`) natively in Rust.
+  - Added native decoded audio playback for local music files (`.mp3`, `.wav`, `.ogg`, `.flac`).
+  - Registered 4 Tauri commands: `start_rain`, `stop_audio`, `set_audio_volume`, `play_local_file`.
+- **Frontend Audio Modernization**:
+  - Rewired `SoundscapeMixer.tsx` and `FloatingMiniPlayer.tsx` to invoke Tauri commands natively.
+  - Eliminated crashes caused by defunct `forceResumeContext()` and `ensureContext()` calls.
+  - Integrated `StudyTimersView.tsx` with native audio start/stop phase triggers.
+  - Completely deleted dead WebKitGTK JavaScript audio engine (`src/services/audioEngine.ts`).
+- **SQLite Directory Initialization Fix (`src/services/db.ts`)**:
+  - Added programmatic pre-creation of `data/` and `data/library/` directories using `@tauri-apps/plugin-fs` in both AppData and local working paths before invoking `Database.load('sqlite:data/studyos.db')`, resolving SQLite code 14 ("unable to open database file").
+
+
 ### Added - 2026-11-13 (Phase 9: Real Data Stress Testing & Offline Integrity Verification)
 - **Real 500-Page PDF Generation (`data/testing/500_pages.pdf`)**:
   - Authored `scripts/generate_test_pdf.py` synthesizing a real 500-page academic corpus (0.61 MB) containing genuine text, section figures, and hierarchical TOC bookmarks.

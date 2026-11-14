@@ -29,9 +29,35 @@ class DatabaseService {
       if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
         this.isTauri = true;
         try {
-          const { mkdir } = await import('@tauri-apps/plugin-fs');
-          await mkdir('data', { recursive: true });
-          await mkdir('data/library', { recursive: true });
+          const { mkdir, exists, BaseDirectory } = await import('@tauri-apps/plugin-fs');
+          
+          // Ensure data directory exists in AppData
+          try {
+            const appDataExists = await exists('data', { baseDir: BaseDirectory.AppData });
+            if (!appDataExists) {
+              await mkdir('data', { recursive: true, baseDir: BaseDirectory.AppData });
+            }
+            const appDataLibExists = await exists('data/library', { baseDir: BaseDirectory.AppData });
+            if (!appDataLibExists) {
+              await mkdir('data/library', { recursive: true, baseDir: BaseDirectory.AppData });
+            }
+          } catch (e) {
+            console.warn('AppData data directory creation attempt:', e);
+          }
+
+          // Ensure data directory also exists relative to working directory
+          try {
+            const cwdDataExists = await exists('data');
+            if (!cwdDataExists) {
+              await mkdir('data', { recursive: true });
+            }
+            const cwdLibExists = await exists('data/library');
+            if (!cwdLibExists) {
+              await mkdir('data/library', { recursive: true });
+            }
+          } catch (e) {
+            console.warn('CWD data directory creation attempt:', e);
+          }
         } catch (fsErr) {
           console.warn('Could not pre-create data directory with plugin-fs:', fsErr);
         }

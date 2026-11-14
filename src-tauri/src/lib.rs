@@ -1,3 +1,4 @@
+pub mod audio;
 pub mod pdf_engine;
 
 use pdf_engine::{ExtractedUnitResult, ImportPdfResult};
@@ -239,6 +240,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        .manage(audio::AudioState::default())
         .invoke_handler(tauri::generate_handler![
             trigger_backup,
             trigger_git_sync,
@@ -248,7 +250,11 @@ pub fn run() {
             restore_backup_snapshot,
             import_pdf,
             extract_pdf_pages,
-            validate_page_ranges
+            validate_page_ranges,
+            audio::start_rain,
+            audio::stop_audio,
+            audio::set_audio_volume,
+            audio::play_local_file
         ])
         .run(tauri::generate_context!())
         .expect("error while building StudyOS native runtime");

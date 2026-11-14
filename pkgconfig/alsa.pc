@@ -1,0 +1,12 @@
+prefix=/usr
+exec_prefix=/usr
+libdir=/home/ziadm/Study-Library/lib
+includedir=/usr/include
+
+Name: alsa
+Description: Advanced Linux Sound Architecture (ALSA) - Library
+Version: 1.2.11
+Requires: 
+Libs: -L/home/ziadm/Study-Library/lib -lasound
+Libs.private: -lm -ldl -lpthread -lrt
+Cflags: -I${includedir}

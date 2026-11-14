@@ -13,13 +13,11 @@ import {
   Bookmark,
   Save,
   Sparkles,
-  Sliders,
-  FolderOpen,
   Check,
   Clock,
 } from 'lucide-react';
-import { AudioPreset, AudioLayer } from '../types';
-import { audioEngine } from '../services/audioEngine';
+import { invoke } from '@tauri-apps/api/core';
+import { AudioPreset } from '../types';
 import { dbService } from '../services/db';
 
 const BUILT_IN_AUDIO_PRESETS: AudioPreset[] = [
@@ -71,20 +69,14 @@ const BUILT_IN_AUDIO_PRESETS: AudioPreset[] = [
 
 export const SoundscapeMixer: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [activePreset, setActivePreset] = useState<AudioPreset>(audioEngine.getActivePreset());
+  const [activePreset, setActivePreset] = useState<AudioPreset>(BUILT_IN_AUDIO_PRESETS[0]);
   const [presets, setPresets] = useState<AudioPreset[]>(BUILT_IN_AUDIO_PRESETS);
   const [showSaveModal, setShowSaveModal] = useState<boolean>(false);
   const [newPresetName, setNewPresetName] = useState<string>('');
   const [newPresetPhase, setNewPresetPhase] = useState<'work' | 'break' | 'always' | 'none'>('work');
 
-  // Subscribe to audio engine changes
   useEffect(() => {
-    const unsub = audioEngine.subscribe((playing, preset) => {
-      setIsPlaying(playing);
-      setActivePreset({ ...preset, layers: [...preset.layers] });
-    });
     loadSavedPresets();
-    return () => unsub();
   }, []);
 
   const loadSavedPresets = async () => {
@@ -100,33 +92,74 @@ export const SoundscapeMixer: React.FC = () => {
 
   const handleTogglePlay = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
-    await audioEngine.forceResumeContext();
-    await audioEngine.togglePlay();
+    if (isPlaying) {
+      try {
+        await invoke('stop_audio');
+        setIsPlaying(false);
+      } catch (err) {
+        console.error('Failed to stop native audio:', err);
+      }
+    } else {
+      try {
+        await invoke('start_rain');
+        setIsPlaying(true);
+      } catch (err) {
+        console.error('Failed to start native audio:', err);
+      }
+    }
   };
 
-  const handleMasterVolumeChange = (vol: number) => {
-    audioEngine.setMasterVolume(vol);
+  const handleMasterVolumeChange = async (vol: number) => {
+    setActivePreset((prev) => ({ ...prev, master_volume: vol }));
+    try {
+      await invoke('set_audio_volume', { volume: vol });
+    } catch (err) {
+      console.error('Failed to set native volume:', err);
+    }
   };
 
   const handleLayerVolumeChange = (layerId: string, vol: number) => {
-    audioEngine.setLayerVolume(layerId, vol);
+    setActivePreset((prev) => ({
+      ...prev,
+      layers: prev.layers.map((l) => (l.id === layerId ? { ...l, volume: vol } : l)),
+    }));
   };
 
   const handleToggleMute = (layerId: string) => {
-    audioEngine.toggleLayerMute(layerId);
+    setActivePreset((prev) => ({
+      ...prev,
+      layers: prev.layers.map((l) => (l.id === layerId ? { ...l, is_muted: !l.is_muted } : l)),
+    }));
   };
 
-  const handleSelectPreset = (preset: AudioPreset) => {
-    audioEngine.loadPreset(preset);
+  const handleSelectPreset = async (preset: AudioPreset) => {
+    setActivePreset(preset);
+    try {
+      await invoke('set_audio_volume', { volume: preset.master_volume });
+      if (preset.master_volume > 0) {
+        await invoke('start_rain');
+        setIsPlaying(true);
+      } else {
+        await invoke('stop_audio');
+        setIsPlaying(false);
+      }
+    } catch (err) {
+      console.error('Failed to switch preset in native audio engine:', err);
+    }
   };
 
-  const handleImportLocalAudio = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportLocalAudio = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Create a local blob object URL for seamless looping
-    const blobUrl = URL.createObjectURL(file);
-    audioEngine.importCustomAudio(blobUrl, file.name.replace(/\.[^/.]+$/, ''));
+    // Use native file path if exposed by Tauri webview or file object
+    const filePath = (file as any).path || file.name;
+    try {
+      await invoke('play_local_file', { path: filePath });
+      setIsPlaying(true);
+    } catch (err) {
+      console.error('Failed to play local audio in Rust engine:', err);
+    }
   };
 
   const handleSavePreset = async (e: React.FormEvent) => {
@@ -143,7 +176,7 @@ export const SoundscapeMixer: React.FC = () => {
 
     await dbService.saveAudioPreset(toSave);
     setPresets((prev) => [...prev, toSave]);
-    audioEngine.loadPreset(toSave);
+    setActivePreset(toSave);
     setShowSaveModal(false);
     setNewPresetName('');
   };
@@ -160,13 +193,13 @@ export const SoundscapeMixer: React.FC = () => {
         <div>
           <div className="flex items-center space-x-2 text-success font-mono text-xs uppercase mb-1 font-bold">
             <Sparkles className="w-4 h-4" />
-            <span>PROCEDURAL ACOUSTIC ENGINE</span>
+            <span>NATIVE RUST AUDIO ENGINE</span>
           </div>
           <h1 className="text-2xl font-bold font-mono tracking-tight text-text-main">
             Soundscape & Atmospheric Mixer
           </h1>
           <p className="text-xs text-text-muted mt-1 font-mono">
-            100% offline procedural pink/white noise rain synthesis, wind gusts, and local audio tracks.
+            100% offline procedural pink noise rain synthesis and local audio tracks running via native Rust audio backend.
           </p>
         </div>
 
@@ -174,7 +207,6 @@ export const SoundscapeMixer: React.FC = () => {
         <div className="flex items-center space-x-4">
           <button
             onClick={handleTogglePlay}
-            onPointerDown={() => audioEngine.forceResumeContext()}
             className={`px-6 py-3 rounded-xl font-mono font-bold text-xs uppercase tracking-wider flex items-center space-x-2.5 transition shadow-md ${
               isPlaying
                 ? 'bg-warning text-canvas hover:brightness-110'
@@ -315,7 +347,7 @@ export const SoundscapeMixer: React.FC = () => {
           </div>
           <div className="font-mono text-xs font-bold text-text-main">IMPORT LOCAL AUDIO</div>
           <div className="text-[10px] font-mono text-text-muted max-w-[180px]">
-            Add .mp3, .wav, or .webm study tracks with seamless looping
+            Add .mp3, .wav, or .ogg study tracks for native Rust playback
           </div>
         </label>
       </div>
@@ -379,7 +411,7 @@ export const SoundscapeMixer: React.FC = () => {
           <div className="hud-panel p-6 max-w-md w-full space-y-4 border border-border shadow-2xl">
             <h3 className="font-mono text-base font-bold text-text-main">Save Soundscape Preset</h3>
             <p className="text-xs font-mono text-text-muted">
-              Save your current procedural mix and layer levels to the local database.
+              Save your current mix and layer levels to the local database.
             </p>
 
             <form onSubmit={handleSavePreset} className="space-y-4">
